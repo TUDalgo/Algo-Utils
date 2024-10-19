@@ -2,6 +2,7 @@ package org.tudalgo.algoutils.student.test;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -73,6 +74,36 @@ public class StudentTestUtils {
             actual,
             a -> a.equals(expected),
             r -> String.format("Expected: <%s>, but was: <%s>", expected, r.toTest())
+        );
+    }
+
+    /**
+     * Checks that the given {@code expected} array is equal to the given {@code actual} array.
+     * If the arrays are not equal, an error message is printed to {@link #S_TEST_ERR}.
+     *
+     * <p>This method is intended to be used in the context of a test case from the student.
+     * It compares the contents of the arrays using {@link Arrays#equals(Object[], Object[])}.
+     *
+     * <p>Example:
+     * <pre>{@code
+     *            public static int[] sortArray(int[] array) {
+     *              Arrays.sort(array);
+     *              return array;
+     *            }
+     *            public static void main(String[] args) {
+     *              testArrayEquals(new int[]{1, 2, 3}, sortArray(new int[]{3, 2, 1}));
+     *              testArrayEquals(new int[]{1, 2, 3}, sortArray(new int[]{1, 2, 3}));
+     *            }
+     *      }</pre>
+     *
+     * @param expected the expected array
+     * @param actual   the actual array
+     */
+    public static void testArrayEquals(Object[] expected, Object[] actual) {
+        simpleStudentTest(
+            actual,
+            a -> Arrays.deepEquals(actual, expected),
+            r -> String.format("Expected: <%s>, but was: <%s>", Arrays.deepToString(expected), Arrays.deepToString(r.toTest()))
         );
     }
 
