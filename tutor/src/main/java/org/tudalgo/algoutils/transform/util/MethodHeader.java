@@ -25,14 +25,7 @@ import java.util.Objects;
  */
 public record MethodHeader(String owner, int access, String name, String descriptor, String signature, String[] exceptions) implements Header {
 
-    public static final Type INTERNAL_TYPE = Type.getType(MethodHeader.class);
-    public static final String INTERNAL_CONSTRUCTOR_DESCRIPTOR = Type.getMethodDescriptor(Type.VOID_TYPE,
-        Type.getType(String.class),
-        Type.INT_TYPE,
-        Type.getType(String.class),
-        Type.getType(String.class),
-        Type.getType(String.class),
-        Type.getType(String[].class));
+    private static final Type INTERNAL_TYPE = Type.getType(MethodHeader.class);
     private static final Type[] INTERNAL_CONSTRUCTOR_TYPES = new Type[] {
         Type.getType(String.class),
         Type.INT_TYPE,

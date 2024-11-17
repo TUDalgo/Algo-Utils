@@ -182,7 +182,7 @@ class SubmissionClassVisitor extends ClassVisitor {
 
                 super.visitFrame(F_APPEND,
                     2,
-                    new Object[] {SubmissionExecutionHandler.Internal.INTERNAL_TYPE.getInternalName(), MethodHeader.INTERNAL_TYPE.getInternalName()},
+                    new Object[] {SubmissionExecutionHandler.Internal.INTERNAL_TYPE.getInternalName(), methodHeader.getType().getInternalName()},
                     0,
                     null);
 
@@ -192,7 +192,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                 super.visitMethodInsn(INVOKEVIRTUAL,
                     SubmissionExecutionHandler.Internal.INTERNAL_TYPE.getInternalName(),
                     "logInvocation",
-                    Type.getMethodDescriptor(Type.BOOLEAN_TYPE, MethodHeader.INTERNAL_TYPE),
+                    Type.getMethodDescriptor(Type.BOOLEAN_TYPE, methodHeader.getType()),
                     false);
                 super.visitJumpInsn(IFEQ, isConstructor ? // jump to label if logInvocation(...) == false
                     defaultTransformationsOnly ? submissionCodeLabel : delegationCheckLabel :
@@ -206,7 +206,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                     SubmissionExecutionHandler.Internal.INTERNAL_TYPE.getInternalName(),
                     "addInvocation",
                     Type.getMethodDescriptor(Type.VOID_TYPE,
-                        MethodHeader.INTERNAL_TYPE,
+                        methodHeader.getType(),
                         Invocation.INTERNAL_TYPE),
                     false);
 
@@ -219,7 +219,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                     super.visitMethodInsn(INVOKEVIRTUAL,
                         SubmissionExecutionHandler.Internal.INTERNAL_TYPE.getInternalName(),
                         "useSubstitution",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE, MethodHeader.INTERNAL_TYPE),
+                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE, methodHeader.getType()),
                         false);
                     super.visitJumpInsn(IFEQ, defaultTransformationsOnly ? submissionCodeLabel : delegationCheckLabel); // jump to label if useSubstitution(...) == false
 
@@ -230,7 +230,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                         SubmissionExecutionHandler.Internal.INTERNAL_TYPE.getInternalName(),
                         "getSubstitution",
                         Type.getMethodDescriptor(Invocation.INTERNAL_TYPE,
-                            MethodHeader.INTERNAL_TYPE),
+                            methodHeader.getType()),
                         false);
                     buildInvocation(Type.getArgumentTypes(methodHeader.descriptor()));
                     super.visitMethodInsn(INVOKEINTERFACE,
@@ -258,7 +258,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                     super.visitMethodInsn(INVOKEVIRTUAL,
                         SubmissionExecutionHandler.Internal.INTERNAL_TYPE.getInternalName(),
                         "useSubmissionImpl",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE, MethodHeader.INTERNAL_TYPE),
+                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE, methodHeader.getType()),
                         false);
                     super.visitJumpInsn(IFNE, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == true
 
@@ -272,7 +272,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                         delegationCodeLabel,
                         submissionExecutionHandlerIndex);
                     super.visitLocalVariable("methodHeader",
-                        MethodHeader.INTERNAL_TYPE.getDescriptor(),
+                        methodHeader.getType().getDescriptor(),
                         null,
                         methodHeaderVarLabel,
                         delegationCodeLabel,
@@ -291,7 +291,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                         submissionCodeLabel,
                         submissionExecutionHandlerIndex);
                     super.visitLocalVariable("methodHeader",
-                        MethodHeader.INTERNAL_TYPE.getDescriptor(),
+                        methodHeader.getType().getDescriptor(),
                         null,
                         methodHeaderVarLabel,
                         submissionCodeLabel,
@@ -393,7 +393,6 @@ class SubmissionClassVisitor extends ClassVisitor {
         ClassHeader classHeader = submissionClassInfo.getOriginalClassHeader();
         Label startLabel = new Label();
         Label endLabel = new Label();
-        int maxStack = 0;
         MethodVisitor mv = super.visitMethod(ACC_PUBLIC | ACC_STATIC,
             "getOriginalClassHeader",
             Type.getMethodDescriptor(classHeader.getType()),
@@ -401,7 +400,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             null);
 
         mv.visitLabel(startLabel);
-        maxStack += buildClassHeader(mv, classHeader);
+        int maxStack = buildClassHeader(mv, classHeader);
         mv.visitInsn(ARETURN);
         mv.visitLabel(endLabel);
         mv.visitLocalVariable("this",
@@ -436,8 +435,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             mv.visitIntInsn(SIPUSH, i++);
             maxStack = Math.max(maxStack, ++stackSize);
             int stackSizeUsed = buildFieldHeader(mv, fieldHeader);
-            maxStack = Math.max(maxStack, stackSize + stackSizeUsed);
-            stackSize++;
+            maxStack = Math.max(maxStack, stackSize++ + stackSizeUsed);
             mv.visitInsn(AASTORE);
             stackSize -= 3;
         }
@@ -480,8 +478,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             mv.visitIntInsn(SIPUSH, i++);
             maxStack = Math.max(maxStack, ++stackSize);
             int stackSizeUsed = buildMethodHeader(mv, methodHeader);
-            maxStack = Math.max(maxStack, stackSize);
-            stackSize++;
+            maxStack = Math.max(maxStack, stackSize++ + stackSizeUsed);
             mv.visitInsn(AASTORE);
             stackSize -= 3;
         }

@@ -190,6 +190,62 @@ public final class TransformationUtils {
     }
 
     /**
+     * Recursively replicates the given array with bytecode instructions using the supplied method visitor.
+     * Upon return, a reference to the newly created array is located at
+     * the top of the method visitor's stack.
+     * {@code componentType} must denote a primitive type, a type compatible with the LDC instruction
+     * and its variants, or an array of either.
+     *
+     * @param mv            the method visitor to use
+     * @param componentType the array's component type
+     * @param array         the array to replicate, may be null
+     * @return the maximum stack size used during the operation
+     */
+    public static int buildArray(MethodVisitor mv, Type componentType, Object[] array) {
+        int componentTypeSort = componentType.getSort();
+        int maxStack, stackSize;
+        if (array == null) {
+            mv.visitInsn(ACONST_NULL);
+            return 1;
+        }
+
+        mv.visitIntInsn(SIPUSH, array.length);
+        if (componentTypeSort == Type.OBJECT || componentTypeSort == Type.ARRAY) {
+            mv.visitTypeInsn(ANEWARRAY, componentType.getInternalName());
+        } else {
+            int operand = switch (componentTypeSort) {
+                case Type.BOOLEAN -> T_BOOLEAN;
+                case Type.BYTE -> T_BYTE;
+                case Type.SHORT -> T_SHORT;
+                case Type.CHAR -> T_CHAR;
+                case Type.INT -> T_INT;
+                case Type.FLOAT -> T_FLOAT;
+                case Type.LONG -> T_LONG;
+                case Type.DOUBLE -> T_DOUBLE;
+                default -> throw new IllegalArgumentException("Unsupported component type: " + componentType);
+            };
+            mv.visitIntInsn(NEWARRAY, operand);
+        }
+        maxStack = stackSize = 1;
+
+        for (int i = 0; i < array.length; i++, stackSize -= 3) {
+            mv.visitInsn(DUP);
+            mv.visitIntInsn(SIPUSH, i);
+            maxStack = Math.max(maxStack, stackSize += 2);
+            if (componentTypeSort == Type.ARRAY) {
+                int stackUsed = buildArray(mv, Type.getType(componentType.getDescriptor().substring(1)), (Object[]) array[i]);
+                maxStack = Math.max(maxStack, stackSize++ + stackUsed);
+            } else {
+                mv.visitLdcInsn(array[i]);
+                maxStack = Math.max(maxStack, ++stackSize);
+            }
+            mv.visitInsn(componentType.getOpcode(IASTORE));
+        }
+
+        return maxStack;
+    }
+
+    /**
      * Replicates the given header with bytecode instructions using the supplied method visitor.
      * Upon return, a reference to the newly created header object is located at
      * the top of the method visitor's stack.
@@ -215,25 +271,8 @@ public final class TransformationUtils {
         for (int i = 0; i < keys.length; i++) {
             Object value = header.getValue(keys[i]);
             if (constructorParameterTypes[i].equals(Type.getType(String[].class))) {
-                Object[] array = (Object[]) value;
-                if (array != null) {
-                    mv.visitIntInsn(SIPUSH, array.length);
-                    mv.visitTypeInsn(ANEWARRAY, Type.getInternalName(String.class));
-                    maxStack = Math.max(maxStack, ++stackSize);
-                    for (int j = 0; j < array.length; j++) {
-                        mv.visitInsn(DUP);
-                        maxStack = Math.max(maxStack, ++stackSize);
-                        mv.visitIntInsn(SIPUSH, j);
-                        maxStack = Math.max(maxStack, ++stackSize);
-                        mv.visitLdcInsn(array[j]);
-                        maxStack = Math.max(maxStack, ++stackSize);
-                        mv.visitInsn(AASTORE);
-                        stackSize -= 3;
-                    }
-                } else {
-                    mv.visitInsn(ACONST_NULL);
-                    maxStack = Math.max(maxStack, ++stackSize);
-                }
+                int stackUsed = buildArray(mv, Type.getType(String[].class), (Object[]) value);
+                maxStack = Math.max(maxStack, stackSize++ + stackUsed);
             } else {
                 if (value != null) {
                     mv.visitLdcInsn(value);
@@ -248,6 +287,7 @@ public final class TransformationUtils {
             "<init>",
             Type.getMethodDescriptor(Type.VOID_TYPE, constructorParameterTypes),
             false);
+
         return maxStack;
     }
 }
