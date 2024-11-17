@@ -76,6 +76,12 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
         this(new Builder(projectPrefix, availableSolutionClasses));
     }
 
+    /**
+     * Constructs a new {@link SolutionMergingClassTransformer} instance with config settings from
+     * the given builder.
+     *
+     * @param builder the builder object
+     */
     @SuppressWarnings("unchecked")
     private SolutionMergingClassTransformer(Builder builder) {
         Map<String, SolutionClassNode> solutionClasses = new HashMap<>();
@@ -104,6 +110,9 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
         reader.accept(new SubmissionClassVisitor(writer, transformationContext, submissionClassName), 0);
     }
 
+    /**
+     * (Internal) Configuration keys
+     */
     public enum Config {
         PROJECT_PREFIX(null),
         SOLUTION_CLASSES(null),
@@ -116,10 +125,19 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
         }
     }
 
+    /**
+     * Builder for {@link SolutionMergingClassTransformer}.
+     */
     public static class Builder {
 
         private final Map<Config, Object> configuration = new EnumMap<>(Config.class);
 
+        /**
+         * Constructs a new {@link Builder}.
+         *
+         * @param projectPrefix   the root package containing all submission classes, usually the sheet number
+         * @param solutionClasses the list of solution class names (fully qualified) to use
+         */
         public Builder(String projectPrefix, String... solutionClasses) {
             for (Config config : Config.values()) {
                 configuration.put(config, config.defaultValue);
@@ -128,11 +146,22 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
             configuration.put(Config.SOLUTION_CLASSES, List.of(solutionClasses));
         }
 
+        /**
+         * Sets the threshold for matching submission classes to solution classes via similarity matching.
+         *
+         * @param similarity the new similarity threshold
+         * @return the builder object
+         */
         public Builder setSimilarity(double similarity) {
             configuration.put(Config.SIMILARITY, similarity);
             return this;
         }
 
+        /**
+         * Constructs the transformer.
+         *
+         * @return the configured {@link SolutionMergingClassTransformer} object
+         */
         public SolutionMergingClassTransformer build() {
             return new SolutionMergingClassTransformer(this);
         }

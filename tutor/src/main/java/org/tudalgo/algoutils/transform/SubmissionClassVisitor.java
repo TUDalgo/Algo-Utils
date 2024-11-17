@@ -49,6 +49,37 @@ import static org.objectweb.asm.Opcodes.*;
  * </ul>
  * All of these options can be enabled / disabled via {@link SubmissionExecutionHandler}.
  *
+ * <br><br>
+ *
+ * Generally, the body of a transformed method would look like this in Java source code:
+ * <pre>
+ * SubmissionExecutionHandler.Internal submissionExecutionHandler = SubmissionExecutionHandler.getInstance().new Internal();
+ * MethodHeader methodHeader = new MethodHeader(...);  // parameters are hardcoded during transformation
+ *
+ * if (submissionExecutionHandler.logInvocation(methodHeader)) {
+ *     submissionExecutionHandler.addInvocation(new Invocation(...)  // new Invocation() if constructor or static method
+ *         .addParameter(...)  // for each parameter
+ *         ...);
+ * }
+ * if (submissionExecutionHandler.useSubstitution(methodHeader)) {  // if not constructor
+ *     submissionExecutionHandler.getSubstitution(methodHeader)
+ *         .execute(new Invocation(...) ...);  // same as above
+ * }
+ * if (submissionExecutionHandler.useSubmissionImpl(methodHeader)) {
+ *     ...  // submission code
+ * } else {
+ *     ...  // solution code
+ * }
+ * </pre>
+ * If no solution class is associated with the submission class, the submission code is executed unconditionally.
+ * <br>
+ * Additionally, the following methods are injected into the submission class:
+ * <pre>
+ * public static ClassHeader getOriginalClassHeader() {...}
+ * public static Set&lt;FieldHeader&gt; getOriginalFieldHeaders() {...}
+ * public static Set&lt;MethodHeader&gt; getOriginalMethodHeaders() {...}
+ * </pre>
+ *
  * @see SubmissionExecutionHandler
  * @author Daniel Mangold
  */
@@ -364,6 +395,7 @@ class SubmissionClassVisitor extends ClassVisitor {
     /**
      * Adds all remaining fields and methods from the solution class that have not already
      * been visited (e.g., lambdas).
+     * Injects methods for retrieving the original class, field and method headers during runtime.
      */
     @Override
     public void visitEnd() {
@@ -389,6 +421,10 @@ class SubmissionClassVisitor extends ClassVisitor {
         super.visitEnd();
     }
 
+    /**
+     * Injects a static method {@code getOriginalClassHeader()} into the submission class.
+     * This injected method returns the original class header of the class pre-transformation.
+     */
     private void classMetadata() {
         ClassHeader classHeader = submissionClassInfo.getOriginalClassHeader();
         Label startLabel = new Label();
@@ -412,6 +448,10 @@ class SubmissionClassVisitor extends ClassVisitor {
         mv.visitMaxs(maxStack, 1);
     }
 
+    /**
+     * Injects a static method {@code getOriginalFieldHeaders()} into the submission class.
+     * This injected method returns the set of original field headers of the class pre-transformation.
+     */
     private void fieldMetadata() {
         Set<FieldHeader> fieldHeaders = submissionClassInfo.getOriginalFieldHeaders();
         Label startLabel = new Label();
@@ -455,6 +495,10 @@ class SubmissionClassVisitor extends ClassVisitor {
         mv.visitMaxs(maxStack, 1);
     }
 
+    /**
+     * Injects a static method {@code getOriginalMethodHeaders()} into the submission class.
+     * This injected method returns the set of original method headers of the class pre-transformation.
+     */
     private void methodMetadata() {
         Set<MethodHeader> methodHeaders = submissionClassInfo.getOriginalMethodHeaders();
         Label startLabel = new Label();

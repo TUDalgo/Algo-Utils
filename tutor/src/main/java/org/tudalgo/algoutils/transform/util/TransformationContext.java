@@ -20,10 +20,20 @@ public record TransformationContext(
     Map<String, SubmissionClassInfo> submissionClasses
 ) {
 
+    /**
+     * Returns the project prefix.
+     *
+     * @return the project prefix
+     */
     public String getProjectPrefix() {
         return (String) configuration.get(SolutionMergingClassTransformer.Config.PROJECT_PREFIX);
     }
 
+    /**
+     * Returns the minimum similarity threshold.
+     *
+     * @return the minimum similarity threshold
+     */
     public double getSimilarity() {
         return (Double) configuration.get(SolutionMergingClassTransformer.Config.SIMILARITY);
     }
