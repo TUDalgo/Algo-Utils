@@ -305,7 +305,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             @Override
             public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
                 // skip transformation if only default transformations are applied or owner is not part of the submission
-                if (defaultTransformationsOnly || !owner.startsWith(transformationContext.projectPrefix())) {
+                if (defaultTransformationsOnly || !owner.startsWith(transformationContext.getProjectPrefix())) {
                     super.visitFieldInsn(opcode, owner, name, descriptor);
                 } else {
                     FieldHeader fieldHeader = transformationContext.getSubmissionClassInfo(owner).getComputedFieldHeader(name);
@@ -316,7 +316,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             @Override
             public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
                 // skip transformation if only default transformations are applied or owner is not part of the submission
-                if (defaultTransformationsOnly || !owner.startsWith(transformationContext.projectPrefix())) {
+                if (defaultTransformationsOnly || !owner.startsWith(transformationContext.getProjectPrefix())) {
                     super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
                 } else {
                     MethodHeader methodHeader = transformationContext.getSubmissionClassInfo(owner).getComputedMethodHeader(name, descriptor);

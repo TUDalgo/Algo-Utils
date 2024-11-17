@@ -1,6 +1,7 @@
 package org.tudalgo.algoutils.transform.util;
 
 import org.tudalgo.algoutils.transform.SolutionClassNode;
+import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
 import org.tudalgo.algoutils.transform.SubmissionClassInfo;
 
 import java.util.Map;
@@ -8,16 +9,24 @@ import java.util.Map;
 /**
  * A record for holding context information for the transformation process.
  *
- * @param projectPrefix     the root package for all submission classes
+ * @param configuration     configuration for this transformer run
  * @param solutionClasses   a mapping of solution class names to their respective {@link SolutionClassNode}
  * @param submissionClasses a mapping of submission class names to their respective {@link SubmissionClassInfo}
  * @author Daniel Mangold
  */
 public record TransformationContext(
-    String projectPrefix,
+    Map<SolutionMergingClassTransformer.Config, Object> configuration,
     Map<String, SolutionClassNode> solutionClasses,
     Map<String, SubmissionClassInfo> submissionClasses
 ) {
+
+    public String getProjectPrefix() {
+        return (String) configuration.get(SolutionMergingClassTransformer.Config.PROJECT_PREFIX);
+    }
+
+    public double getSimilarity() {
+        return (Double) configuration.get(SolutionMergingClassTransformer.Config.SIMILARITY);
+    }
 
     /**
      * Returns the {@link SubmissionClassInfo} for a given submission class name.

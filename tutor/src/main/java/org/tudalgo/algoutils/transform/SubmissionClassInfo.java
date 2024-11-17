@@ -65,7 +65,7 @@ public class SubmissionClassInfo extends ClassVisitor {
                 .keySet()
                 .stream()
                 .map(s -> new Pair<>(s, MatchingUtils.similarity(originalClassName, s)))
-                .filter(pair -> pair.getSecond() >= 0.90)
+                .filter(pair -> pair.getSecond() >= transformationContext.getSimilarity())
                 .max(Comparator.comparing(Pair::getSecond))
                 .map(Pair::getFirst)
                 .orElse(originalClassName);
@@ -176,7 +176,7 @@ public class SubmissionClassInfo extends ClassVisitor {
                 .keySet()
                 .stream()
                 .map(fieldHeader -> new Pair<>(fieldHeader, MatchingUtils.similarity(name, fieldHeader.name())))
-                .filter(pair -> pair.getSecond() >= 0.90)
+                .filter(pair -> pair.getSecond() >= transformationContext.getSimilarity())
                 .max(Comparator.comparing(Pair::getSecond))
                 .map(Pair::getFirst)
                 .orElse(submissionFieldHeader);
@@ -206,7 +206,7 @@ public class SubmissionClassInfo extends ClassVisitor {
                 .map(methodHeader -> new Triple<>(methodHeader,
                     MatchingUtils.similarity(name, methodHeader.name()),
                     MatchingUtils.similarity(descriptor, methodHeader.descriptor())))
-                .filter(triple -> triple.getSecond() >= 0.90 && triple.getThird() >= 0.90)
+                .filter(triple -> triple.getSecond() >= transformationContext.getSimilarity() && triple.getThird() >= transformationContext.getSimilarity())
                 .max(Comparator.comparing(Triple<MethodHeader, Double, Double>::getSecond).thenComparing(Triple::getThird))
                 .map(Triple::getFirst)
                 .orElse(submissionMethodHeader);
@@ -252,7 +252,7 @@ public class SubmissionClassInfo extends ClassVisitor {
      */
     private void resolveSuperClassMembers(Set<Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>>> superClassMembers,
                                           String className) {
-        if (className.startsWith(transformationContext.projectPrefix())) {
+        if (className.startsWith(transformationContext.getProjectPrefix())) {
             SubmissionClassInfo submissionClassInfo = transformationContext.getSubmissionClassInfo(className);
             superClassMembers.add(new Triple<>(className, submissionClassInfo.fields, submissionClassInfo.methods));
             resolveSuperClassMembers(superClassMembers, submissionClassInfo.superClass, submissionClassInfo.interfaces);

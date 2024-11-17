@@ -8,9 +8,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.sourcegrade.jagr.api.testing.ClassTransformer;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -74,11 +72,18 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
      * @param projectPrefix            the root package containing all submission classes, usually the sheet number
      * @param availableSolutionClasses the list of solution class names (fully qualified) to use
      */
-    public SolutionMergingClassTransformer(String projectPrefix, List<String> availableSolutionClasses) {
+    public SolutionMergingClassTransformer(String projectPrefix, String... availableSolutionClasses) {
+        this(new Builder(projectPrefix, availableSolutionClasses));
+    }
+
+    @SuppressWarnings("unchecked")
+    private SolutionMergingClassTransformer(Builder builder) {
         Map<String, SolutionClassNode> solutionClasses = new HashMap<>();
         Map<String, SubmissionClassInfo> submissionClasses = new ConcurrentHashMap<>();
-        this.transformationContext = new TransformationContext(projectPrefix, solutionClasses, submissionClasses);
-        availableSolutionClasses.stream()
+        this.transformationContext = new TransformationContext(Collections.unmodifiableMap(builder.configuration),
+            solutionClasses,
+            submissionClasses);
+        ((List<String>) builder.configuration.get(Config.SOLUTION_CLASSES)).stream()
             .map(s -> s.replace('.', '/'))
             .forEach(className -> solutionClasses.put(className, TransformationUtils.readSolutionClass(className)));
     }
@@ -97,5 +102,39 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
     public void transform(ClassReader reader, ClassWriter writer) {
         String submissionClassName = reader.getClassName();
         reader.accept(new SubmissionClassVisitor(writer, transformationContext, submissionClassName), 0);
+    }
+
+    public enum Config {
+        PROJECT_PREFIX(null),
+        SOLUTION_CLASSES(null),
+        SIMILARITY(0.90);
+
+        private final Object defaultValue;
+
+        Config(Object defaultValue) {
+            this.defaultValue = defaultValue;
+        }
+    }
+
+    public static class Builder {
+
+        private final Map<Config, Object> configuration = new EnumMap<>(Config.class);
+
+        public Builder(String projectPrefix, String... solutionClasses) {
+            for (Config config : Config.values()) {
+                configuration.put(config, config.defaultValue);
+            }
+            configuration.put(Config.PROJECT_PREFIX, projectPrefix);
+            configuration.put(Config.SOLUTION_CLASSES, List.of(solutionClasses));
+        }
+
+        public Builder setSimilarity(double similarity) {
+            configuration.put(Config.SIMILARITY, similarity);
+            return this;
+        }
+
+        public SolutionMergingClassTransformer build() {
+            return new SolutionMergingClassTransformer(this);
+        }
     }
 }
