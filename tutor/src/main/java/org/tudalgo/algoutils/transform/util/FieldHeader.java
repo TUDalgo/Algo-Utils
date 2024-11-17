@@ -8,6 +8,9 @@ import java.util.Objects;
 
 /**
  * A record holding information on the header of a field as declared in java bytecode.
+ * {@code owner} uses the internal name of the corresponding class (see {@link Type#getInternalName()}).
+ * {@link Type#getType(String)} can be used with {@code descriptor} to get a more user-friendly
+ * representation of this field's type.
  *
  * @param owner      the field's owner or declaring class
  * @param access     the field's modifiers

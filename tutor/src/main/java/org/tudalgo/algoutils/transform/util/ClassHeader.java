@@ -7,6 +7,8 @@ import java.util.Objects;
 
 /**
  * A record holding information on the header of a class as declared in Java bytecode.
+ * {@code name}, {@code superName} as well as the values of {@code interfaces} use the internal name
+ * of the corresponding class (see {@link Type#getInternalName()}).
  *
  * @param access     the class' modifiers
  * @param name       the class' name

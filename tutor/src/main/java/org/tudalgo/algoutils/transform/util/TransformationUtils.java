@@ -109,7 +109,7 @@ public final class TransformationUtils {
      *
      * @param mv          the method visitor to use
      * @param classHeader the class header to replicate in bytecode
-     * @return the maximum stack size during the operation
+     * @return the maximum stack size used during the operation
      */
     public static int buildClassHeader(MethodVisitor mv, ClassHeader classHeader) {
         return buildHeader(mv, classHeader, "access", "name", "signature", "superName", "interfaces");
@@ -123,7 +123,7 @@ public final class TransformationUtils {
      *
      * @param mv          the method visitor to use
      * @param fieldHeader the field header to replicate in bytecode
-     * @return the maximum stack size during the operation
+     * @return the maximum stack size used during the operation
      */
     public static int buildFieldHeader(MethodVisitor mv, FieldHeader fieldHeader) {
         return buildHeader(mv, fieldHeader, "owner", "access", "name", "descriptor", "signature");
@@ -137,7 +137,7 @@ public final class TransformationUtils {
      *
      * @param mv           the method visitor to use
      * @param methodHeader the method header to replicate in bytecode
-     * @return the maximum stack size during the operation
+     * @return the maximum stack size used during the operation
      */
     public static int buildMethodHeader(MethodVisitor mv, MethodHeader methodHeader) {
         return buildHeader(mv, methodHeader, "owner", "access", "name", "descriptor", "signature", "exceptions");
@@ -202,7 +202,7 @@ public final class TransformationUtils {
      * @param mv     the method visitor to use
      * @param header the header object to replicate in bytecode
      * @param keys   the keys to get values for
-     * @return the maximum stack size during the operation
+     * @return the maximum stack size used during the operation
      */
     private static int buildHeader(MethodVisitor mv, Header header, String... keys) {
         Type headerType = header.getType();

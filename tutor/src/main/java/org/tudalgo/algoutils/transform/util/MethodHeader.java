@@ -10,6 +10,10 @@ import java.util.Objects;
 
 /**
  * A record holding information on the header of a method as declared in java bytecode.
+ * {@code owner} as well as the values of {@code exceptions} use the internal name
+ * of the corresponding class (see {@link Type#getInternalName()}).
+ * {@link Type#getMethodType(String)} can be used with {@code descriptor} to get a more user-friendly
+ * representation of this method's return type and parameter types.
  *
  * @param owner      the method's owner or declaring class
  * @param access     the method's modifiers
