@@ -1,12 +1,11 @@
 package org.tudalgo.algoutils.transform;
 
 import org.tudalgo.algoutils.transform.util.*;
-import kotlin.Pair;
 import org.objectweb.asm.Type;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
+import java.lang.reflect.Executable;
 import java.util.*;
 
 /**
@@ -155,12 +154,12 @@ public class SubmissionExecutionHandler {
     }
 
     /**
-     * Enables logging of method invocations for the given method.
+     * Enables logging of method / constructor invocations for the given executable.
      *
-     * @param method the method to enable invocation logging for
+     * @param executable the method / constructor to enable invocation logging for
      */
-    public void enableMethodInvocationLogging(Method method) {
-        enableMethodInvocationLogging(new MethodHeader(method));
+    public void enableMethodInvocationLogging(Executable executable) {
+        enableMethodInvocationLogging(new MethodHeader(executable));
     }
 
     /**
@@ -174,13 +173,13 @@ public class SubmissionExecutionHandler {
     }
 
     /**
-     * Returns all logged invocations for the given method.
+     * Returns all logged invocations for the given method / constructor.
      *
-     * @param method the method to get invocations of
+     * @param executable the method / constructor to get invocations of
      * @return a list of invocations on the given method
      */
-    public List<Invocation> getInvocationsForMethod(Method method) {
-        return getInvocationsForMethod(new MethodHeader(method));
+    public List<Invocation> getInvocationsForMethod(Executable executable) {
+        return getInvocationsForMethod(new MethodHeader(executable));
     }
 
     /**
@@ -206,15 +205,15 @@ public class SubmissionExecutionHandler {
     }
 
     /**
-     * Substitute calls to the given method with the invocation of the given {@link MethodSubstitution}.
+     * Substitute calls to the given method / constructor with the invocation of the given {@link MethodSubstitution}.
      * In other words, instead of executing the instructions of either the original submission or the solution,
      * this can be used to make the method do and return anything during runtime.
      *
-     * @param method     the method to substitute
+     * @param executable the method / constructor to substitute
      * @param substitute the {@link MethodSubstitution} the method will be substituted with
      */
-    public void substituteMethod(Method method, MethodSubstitution substitute) {
-        substituteMethod(new MethodHeader(method), substitute);
+    public void substituteMethod(Executable executable, MethodSubstitution substitute) {
+        substituteMethod(new MethodHeader(executable), substitute);
     }
 
     /**
@@ -240,12 +239,12 @@ public class SubmissionExecutionHandler {
     }
 
     /**
-     * Disables delegation to the solution for the given method.
+     * Disables delegation to the solution for the given executable.
      *
-     * @param method the method to disable delegation for
+     * @param executable the method / constructor to disable delegation for
      */
-    public void disableMethodDelegation(Method method) {
-        disableMethodDelegation(new MethodHeader(method));
+    public void disableMethodDelegation(Executable executable) {
+        disableMethodDelegation(new MethodHeader(executable));
     }
 
     /**
@@ -256,48 +255,6 @@ public class SubmissionExecutionHandler {
     public void disableMethodDelegation(MethodHeader methodHeader) {
         methodDelegationAllowlist.computeIfAbsent(methodHeader.owner(), k -> new HashMap<>())
             .put(methodHeader, true);
-    }
-
-    /**
-     * This functional interface represents a substitution for a method.
-     * The functional method {@link #execute(Invocation)} is called with the original invocation's context.
-     * Its return value is also the value that will be returned by the substituted method.
-     */
-    @FunctionalInterface
-    public interface MethodSubstitution {
-
-        Type INTERNAL_TYPE = Type.getType(MethodSubstitution.class);
-
-        /**
-         * DO NOT USE, THIS METHOD HAS NO EFFECT RIGHT NOW.
-         * TODO: implement constructor substitution
-         * <br><br>
-         * Defines the behaviour of method substitution when the substituted method is a constructor.
-         * When a constructor method is substituted, either {@code super(...)} or {@code this(...)} must be called
-         * before calling {@link #execute(Invocation)}.
-         * This method returns a pair consisting of...
-         * <ol>
-         *     <li>the internal class name / owner of the target constructor and</li>
-         *     <li>the values that are passed to the constructor of that class.</li>
-         * </ol>
-         * The first pair entry must be either the original method's owner (for {@code this(...)}) or
-         * the superclass (for {@code super(...)}).
-         * The second entry is an array of parameter values for that constructor.
-         * Default behaviour assumes calling the constructor of {@link Object}, i.e., a class that has no superclass.
-         *
-         * @return a pair containing the target method's owner and arguments
-         */
-        default Pair<String, Object[]> constructorBehaviour() {
-            return new Pair<>("java/lang/Object", new Object[0]);
-        }
-
-        /**
-         * Defines the actions of the substituted method.
-         *
-         * @param invocation the context of an invocation
-         * @return the return value of the substituted method
-         */
-        Object execute(Invocation invocation);
     }
 
     /**

@@ -42,7 +42,7 @@ public final class TransformationUtils {
 
     /**
      * Automatically unbox primitive types using the supplied {@link MethodVisitor}.
-     * If the given type is not a primitive type, this method does nothing.
+     * If the given type is not a primitive type, then this method will cast it to the specified type.
      *
      * @param mv   the {@link MethodVisitor} to use
      * @param type the type of the value
@@ -81,6 +81,7 @@ public final class TransformationUtils {
                 mv.visitTypeInsn(CHECKCAST, "java/lang/Double");
                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/Double", "doubleValue", "()D", false);
             }
+            case Type.OBJECT, Type.ARRAY -> mv.visitTypeInsn(CHECKCAST, type.getInternalName());
         }
     }
 
@@ -271,7 +272,7 @@ public final class TransformationUtils {
         for (int i = 0; i < keys.length; i++) {
             Object value = header.getValue(keys[i]);
             if (constructorParameterTypes[i].equals(Type.getType(String[].class))) {
-                int stackUsed = buildArray(mv, Type.getType(String[].class), (Object[]) value);
+                int stackUsed = buildArray(mv, Type.getType(String.class), (Object[]) value);
                 maxStack = Math.max(maxStack, stackSize++ + stackUsed);
             } else {
                 if (value != null) {

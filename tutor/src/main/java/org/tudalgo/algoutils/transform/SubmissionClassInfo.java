@@ -6,10 +6,12 @@ import kotlin.Triple;
 import org.objectweb.asm.*;
 import org.tudalgo.algoutils.tutor.general.match.MatchingUtils;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
@@ -41,6 +43,8 @@ public class SubmissionClassInfo extends ClassVisitor {
 
     // Mapping of methods in submission => usable methods
     private final Map<MethodHeader, MethodHeader> methods = new HashMap<>();
+
+    private final Map<MethodHeader, MethodHeader> superClassConstructors = new HashMap<>();
 
     /**
      * Constructs a new {@link SubmissionClassInfo} instance.
@@ -159,6 +163,19 @@ public class SubmissionClassInfo extends ClassVisitor {
             .orElseThrow();
     }
 
+    public Set<MethodHeader> getOriginalSuperClassConstructorHeaders() {
+        return superClassConstructors.keySet();
+    }
+
+    public MethodHeader getComputedSuperClassConstructorHeader(String descriptor) {
+        return superClassConstructors.entrySet()
+            .stream()
+            .filter(entry -> entry.getKey().descriptor().equals(descriptor))
+            .findAny()
+            .map(Map.Entry::getValue)
+            .orElseThrow();
+    }
+
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
         submissionClassHeader = new ClassHeader(access, name, signature, superName, interfaces);
@@ -221,8 +238,19 @@ public class SubmissionClassInfo extends ClassVisitor {
     @Override
     public void visitEnd() {
         for (Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>> triple : superClassMembers) {
+            if (triple.getFirst().equals(superClass)) {
+                triple.getThird()
+                    .entrySet()
+                    .stream()
+                    .filter(entry -> entry.getKey().name().equals("<init>"))
+                    .forEach(entry -> superClassConstructors.put(entry.getKey(), entry.getValue()));
+            }
             triple.getSecond().forEach(fields::putIfAbsent);
-            triple.getThird().forEach(methods::putIfAbsent);
+            triple.getThird()
+                .entrySet()
+                .stream()
+                .filter(entry -> !entry.getKey().name().equals("<init>"))
+                .forEach(entry -> methods.putIfAbsent(entry.getKey(), entry.getValue()));
         }
     }
 
@@ -254,34 +282,34 @@ public class SubmissionClassInfo extends ClassVisitor {
                                           String className) {
         if (className.startsWith(transformationContext.getProjectPrefix())) {
             SubmissionClassInfo submissionClassInfo = transformationContext.getSubmissionClassInfo(className);
-            superClassMembers.add(new Triple<>(className, submissionClassInfo.fields, submissionClassInfo.methods));
+            superClassMembers.add(new Triple<>(className,
+                submissionClassInfo.fields.entrySet()
+                    .stream()
+                    .filter(entry -> !Modifier.isPrivate(entry.getKey().access()))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
+                submissionClassInfo.methods.entrySet()
+                    .stream()
+                    .filter(entry -> !Modifier.isPrivate(entry.getKey().access()))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
             resolveSuperClassMembers(superClassMembers, submissionClassInfo.superClass, submissionClassInfo.interfaces);
         } else {
             try {
                 Class<?> clazz = Class.forName(className.replace('/', '.'));
                 Map<FieldHeader, FieldHeader> fieldHeaders = new HashMap<>();
                 for (Field field : clazz.getDeclaredFields()) {
-                    if ((field.getModifiers() & Modifier.PRIVATE) != 0) continue;
-                    FieldHeader fieldHeader = new FieldHeader(
-                        className,
-                        field.getModifiers(),
-                        field.getName(),
-                        Type.getDescriptor(field.getType()),
-                        null
-                    );
+                    if (Modifier.isPrivate(field.getModifiers())) continue;
+                    FieldHeader fieldHeader = new FieldHeader(field);
                     fieldHeaders.put(fieldHeader, fieldHeader);
                 }
                 Map<MethodHeader, MethodHeader> methodHeaders = new HashMap<>();
+                for (Constructor<?> constructor : clazz.getDeclaredConstructors()) {
+                    if (Modifier.isPrivate(constructor.getModifiers())) continue;
+                    MethodHeader methodHeader = new MethodHeader(constructor);
+                    methodHeaders.put(methodHeader, methodHeader);
+                }
                 for (Method method : clazz.getDeclaredMethods()) {
-                    if ((method.getModifiers() & Modifier.PRIVATE) != 0) continue;
-                    MethodHeader methodHeader = new MethodHeader(
-                        className,
-                        method.getModifiers(),
-                        method.getName(),
-                        Type.getMethodDescriptor(method),
-                        null,
-                        Arrays.stream(method.getExceptionTypes()).map(Type::getInternalName).toArray(String[]::new)
-                    );
+                    if (Modifier.isPrivate(method.getModifiers())) continue;
+                    MethodHeader methodHeader = new MethodHeader(method);
                     methodHeaders.put(methodHeader, methodHeader);
                 }
                 superClassMembers.add(new Triple<>(className, fieldHeaders, methodHeaders));

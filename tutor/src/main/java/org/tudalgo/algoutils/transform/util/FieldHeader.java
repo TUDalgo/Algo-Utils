@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Type;
 
+import java.lang.reflect.Field;
 import java.util.Objects;
 
 /**
@@ -29,6 +30,14 @@ public record FieldHeader(String owner, int access, String name, String descript
         Type.getType(String.class),
         Type.getType(String.class)
     };
+
+    public FieldHeader(Field field) {
+        this(Type.getInternalName(field.getDeclaringClass()),
+            field.getModifiers(),
+            field.getName(),
+            Type.getDescriptor(field.getType()),
+            null);
+    }
 
     @Override
     public Type getType() {

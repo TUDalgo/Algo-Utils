@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Objects;
@@ -35,6 +36,26 @@ public record MethodHeader(String owner, int access, String name, String descrip
         Type.getType(String[].class)
     };
 
+    /**
+     * Constructs a new method header using the given method / constructor.
+     *
+     * @param executable a java reflection method or constructor
+     */
+    public MethodHeader(Executable executable) {
+        this(Type.getInternalName(executable.getDeclaringClass()),
+            executable.getModifiers(),
+            executable instanceof Method method ? method.getName() : "<init>",
+            executable instanceof Method method ?
+                Type.getMethodDescriptor(method) :
+                Type.getMethodDescriptor(Type.VOID_TYPE, Arrays.stream(executable.getParameterTypes())
+                    .map(Type::getType)
+                    .toArray(Type[]::new)),
+            null,
+            Arrays.stream(executable.getExceptionTypes())
+                .map(Type::getInternalName)
+                .toArray(String[]::new));
+    }
+
     @Override
     public Type getType() {
         return INTERNAL_TYPE;
@@ -56,22 +77,6 @@ public record MethodHeader(String owner, int access, String name, String descrip
             case "exceptions" -> this.exceptions;
             default -> throw new IllegalArgumentException("Invalid name: " + name);
         };
-    }
-
-    /**
-     * Constructs a new method header using the given method.
-     *
-     * @param method a java reflection method
-     */
-    public MethodHeader(Method method) {
-        this(Type.getInternalName(method.getDeclaringClass()),
-            method.getModifiers(),
-            method.getName(),
-            Type.getMethodDescriptor(method),
-            null,
-            Arrays.stream(method.getExceptionTypes())
-                .map(Type::getInternalName)
-                .toArray(String[]::new));
     }
 
     /**
