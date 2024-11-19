@@ -39,6 +39,28 @@ public record TransformationContext(
     }
 
     /**
+     * Whether the given method call should be replaced.
+     *
+     * @param methodHeader the header of the target method
+     * @return true, if a replacement exists, otherwise false
+     */
+    public boolean methodHasReplacement(MethodHeader methodHeader) {
+        return getMethodReplacement(methodHeader) != null;
+    }
+
+    /**
+     * Returns the replacement method header for the given target method header.
+     *
+     * @param methodHeader the header of the target method
+     * @return the replacement method header
+     */
+    @SuppressWarnings("unchecked")
+    public MethodHeader getMethodReplacement(MethodHeader methodHeader) {
+        return ((Map<MethodHeader, MethodHeader>) configuration.get(SolutionMergingClassTransformer.Config.METHOD_REPLACEMENTS))
+            .get(methodHeader);
+    }
+
+    /**
      * Returns the {@link SubmissionClassInfo} for a given submission class name.
      * If no mapping exists in {@link #submissionClasses}, will attempt to compute one.
      *

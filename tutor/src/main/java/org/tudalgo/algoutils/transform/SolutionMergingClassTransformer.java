@@ -1,6 +1,7 @@
 package org.tudalgo.algoutils.transform;
 
 import org.tudalgo.algoutils.student.annotation.ForceSignature;
+import org.tudalgo.algoutils.transform.util.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 import org.tudalgo.algoutils.transform.util.TransformationUtils;
 import org.objectweb.asm.ClassReader;
@@ -8,6 +9,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.sourcegrade.jagr.api.testing.ClassTransformer;
 
+import java.lang.reflect.Executable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -91,7 +93,7 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
             submissionClasses);
         ((List<String>) builder.configuration.get(Config.SOLUTION_CLASSES)).stream()
             .map(s -> s.replace('.', '/'))
-            .forEach(className -> solutionClasses.put(className, TransformationUtils.readSolutionClass(className)));
+            .forEach(className -> solutionClasses.put(className, TransformationUtils.readSolutionClass(transformationContext, className)));
     }
 
     @Override
@@ -116,7 +118,8 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
     public enum Config {
         PROJECT_PREFIX(null),
         SOLUTION_CLASSES(null),
-        SIMILARITY(0.90);
+        SIMILARITY(0.90),
+        METHOD_REPLACEMENTS(new HashMap<MethodHeader, MethodHeader>());
 
         private final Object defaultValue;
 
@@ -154,6 +157,45 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
          */
         public Builder setSimilarity(double similarity) {
             configuration.put(Config.SIMILARITY, similarity);
+            return this;
+        }
+
+        /**
+         * Replaces all calls to the target executable with calls to the replacement executable.
+         * The replacement executable must be accessible from the calling class, be static and declare
+         * the same parameter types and return type as the target.
+         * If the target executable is not static, the replacement must declare an additional parameter
+         * at the beginning to receive the object the target was called on.<br>
+         * Example:<br>
+         * Target: {@code public boolean equals(Object)} in class {@code String} =>
+         * Replacement: {@code public static boolean <name>(String, Object)}
+         *
+         * @param targetExecutable      the targeted method / constructor
+         * @param replacementExecutable the replacement method / constructor
+         * @return the builder object
+         */
+        public Builder addMethodReplacement(Executable targetExecutable, Executable replacementExecutable) {
+            return addMethodReplacement(new MethodHeader(targetExecutable), new MethodHeader(replacementExecutable));
+        }
+
+        /**
+         * Replaces all calls to the matching the target's method header with calls to the replacement.
+         * The replacement must be accessible from the calling class, be static and declare
+         * the same parameter types and return type as the target.
+         * If the target is not static, the replacement must declare an additional parameter
+         * at the beginning to receive the object the target was called on.<br>
+         * Example:<br>
+         * Target: {@code public boolean equals(Object)} in class {@code String} =>
+         * Replacement: {@code public static boolean <name>(String, Object)}
+         *
+         * @param targetMethodHeader      the header of the targeted method / constructor
+         * @param replacementMethodHeader the header of the replacement method / constructor
+         * @return the builder object
+         */
+        @SuppressWarnings("unchecked")
+        public Builder addMethodReplacement(MethodHeader targetMethodHeader, MethodHeader replacementMethodHeader) {
+            ((Map<MethodHeader, MethodHeader>) configuration.get(Config.METHOD_REPLACEMENTS))
+                .put(targetMethodHeader, replacementMethodHeader);
             return this;
         }
 

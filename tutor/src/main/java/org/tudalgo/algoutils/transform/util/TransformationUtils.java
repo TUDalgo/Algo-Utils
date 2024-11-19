@@ -147,10 +147,11 @@ public final class TransformationUtils {
     /**
      * Attempts to read and process a solution class from {@code resources/classes/}.
      *
-     * @param className the name of the solution class
+     * @param transformationContext a {@link TransformationContext} object
+     * @param className             the name of the solution class
      * @return the resulting {@link SolutionClassNode} object
      */
-    public static SolutionClassNode readSolutionClass(String className) {
+    public static SolutionClassNode readSolutionClass(TransformationContext transformationContext, String className) {
         ClassReader solutionClassReader;
         String solutionClassFilePath = "/classes/%s.bin".formatted(className);
         try (InputStream is = SolutionMergingClassTransformer.class.getResourceAsStream(solutionClassFilePath)) {
@@ -161,7 +162,7 @@ public final class TransformationUtils {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        SolutionClassNode solutionClassNode = new SolutionClassNode(className);
+        SolutionClassNode solutionClassNode = new SolutionClassNode(transformationContext, className);
         solutionClassReader.accept(solutionClassNode, 0);
         return solutionClassNode;
     }
@@ -177,9 +178,12 @@ public final class TransformationUtils {
         ClassReader submissionClassReader;
         String submissionClassFilePath = "/%s.class".formatted(className);
         try (InputStream is = SolutionMergingClassTransformer.class.getResourceAsStream(submissionClassFilePath)) {
+            if (is == null) {
+                return null;
+            }
             submissionClassReader = new ClassReader(is);
         } catch (IOException e) {
-            return null;
+            throw new RuntimeException(e);
         }
         SubmissionClassInfo submissionClassInfo = new SubmissionClassInfo(
             transformationContext,

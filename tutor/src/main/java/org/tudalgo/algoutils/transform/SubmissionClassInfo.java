@@ -280,6 +280,10 @@ public class SubmissionClassInfo extends ClassVisitor {
      */
     private void resolveSuperClassMembers(Set<Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>>> superClassMembers,
                                           String className) {
+        if (className == null) {
+            return;
+        }
+
         if (className.startsWith(transformationContext.getProjectPrefix())) {
             SubmissionClassInfo submissionClassInfo = transformationContext.getSubmissionClassInfo(className);
             superClassMembers.add(new Triple<>(className,

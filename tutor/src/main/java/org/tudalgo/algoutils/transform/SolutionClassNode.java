@@ -10,13 +10,13 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.tudalgo.algoutils.transform.util.TransformationContext;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
-import static org.objectweb.asm.Opcodes.ASM9;
+import static org.objectweb.asm.Opcodes.*;
 
 /**
  * A class node for recording bytecode instructions of solution classes.
@@ -24,6 +24,7 @@ import static org.objectweb.asm.Opcodes.ASM9;
  */
 public class SolutionClassNode extends ClassNode {
 
+    private final TransformationContext transformationContext;
     private final String className;
     private ClassHeader classHeader;
     private final Map<FieldHeader, FieldNode> fields = new HashMap<>();
@@ -34,8 +35,9 @@ public class SolutionClassNode extends ClassNode {
      *
      * @param className the name of the solution class
      */
-    public SolutionClassNode(String className) {
+    public SolutionClassNode(TransformationContext transformationContext, String className) {
         super(Opcodes.ASM9);
+        this.transformationContext = transformationContext;
         this.className = className;
     }
 
@@ -103,11 +105,21 @@ public class SolutionClassNode extends ClassNode {
         return new MethodNode(ASM9, access, name, descriptor, signature, exceptions) {
             @Override
             public void visitMethodInsn(int opcodeAndSource, String owner, String name, String descriptor, boolean isInterface) {
-                super.visitMethodInsn(opcodeAndSource,
-                    owner,
-                    name + (name.startsWith("lambda$") ? "$solution" : ""),
-                    descriptor,
-                    isInterface);
+                MethodHeader methodHeader = new MethodHeader(owner, 0, name, descriptor, null, null);
+                if (transformationContext.methodHasReplacement(methodHeader)) {
+                    MethodHeader replacementMethodHeader = transformationContext.getMethodReplacement(methodHeader);
+                    super.visitMethodInsn(INVOKESTATIC,
+                        replacementMethodHeader.owner(),
+                        replacementMethodHeader.name(),
+                        replacementMethodHeader.descriptor(),
+                        false);
+                } else {
+                    super.visitMethodInsn(opcodeAndSource,
+                        owner,
+                        name + (name.startsWith("lambda$") ? "$solution" : ""),
+                        descriptor,
+                        isInterface);
+                }
             }
 
             @Override
