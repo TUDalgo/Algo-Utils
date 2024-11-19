@@ -19,23 +19,14 @@ import java.util.Objects;
  */
 public record ClassHeader(int access, String name, String signature, String superName, String[] interfaces) implements Header {
 
-    private static final Type INTERNAL_TYPE = Type.getType(ClassHeader.class);
-    private static final Type[] INTERNAL_CONSTRUCTOR_TYPES = new Type[] {
-        Type.INT_TYPE,
-        Type.getType(String.class),
-        Type.getType(String.class),
-        Type.getType(String.class),
-        Type.getType(String[].class)
-    };
-
     @Override
     public Type getType() {
-        return INTERNAL_TYPE;
+        return Constants.CLASS_HEADER_TYPE;
     }
 
     @Override
     public Type[] getConstructorParameterTypes() {
-        return INTERNAL_CONSTRUCTOR_TYPES;
+        return Constants.CLASS_HEADER_CONSTRUCTOR_TYPES;
     }
 
     @Override

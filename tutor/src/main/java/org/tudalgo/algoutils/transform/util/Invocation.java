@@ -1,11 +1,6 @@
 package org.tudalgo.algoutils.transform.util;
 
-import org.objectweb.asm.Type;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * This class holds information about the context of an invocation.
@@ -14,8 +9,6 @@ import java.util.Objects;
  * @author Daniel Mangold
  */
 public class Invocation {
-
-    public static final Type INTERNAL_TYPE = Type.getType(Invocation.class);
 
     private final Object instance;
     private final StackTraceElement[] stackTrace;
@@ -185,7 +178,7 @@ public class Invocation {
 
     @Override
     public String toString() {
-        return "Invocation{instance=%s, parameterValues=%s}".formatted(instance, parameterValues);
+        return "Invocation{instance=%s, stackTrace=%s, parameterValues=%s}".formatted(instance, Arrays.toString(stackTrace), parameterValues);
     }
 
     @Override
@@ -193,11 +186,13 @@ public class Invocation {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Invocation that = (Invocation) o;
-        return Objects.equals(parameterValues, that.parameterValues);
+        return Objects.equals(instance, that.instance) &&
+            Arrays.equals(stackTrace, that.stackTrace) &&
+            Objects.equals(parameterValues, that.parameterValues);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(parameterValues);
+        return Objects.hash(instance, Arrays.hashCode(stackTrace), parameterValues);
     }
 }

@@ -15,8 +15,6 @@ import java.util.Map;
  */
 public class ForceSignatureAnnotationProcessor {
 
-    private static final Type FORCE_SIGNATURE_TYPE = Type.getType(ForceSignature.class);
-
     /**
      * The forced identifier of the class, if any.
      */
@@ -130,7 +128,7 @@ public class ForceSignatureAnnotationProcessor {
 
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            if (descriptor.equals(FORCE_SIGNATURE_TYPE.getDescriptor())) {
+            if (descriptor.equals(Constants.FORCE_SIGNATURE_TYPE.getDescriptor())) {
                 return annotationVisitor = new ForceSignatureAnnotationVisitor();
             } else {
                 return null;
@@ -216,7 +214,7 @@ public class ForceSignatureAnnotationProcessor {
 
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            if (descriptor.equals(FORCE_SIGNATURE_TYPE.getDescriptor())) {
+            if (descriptor.equals(Constants.FORCE_SIGNATURE_TYPE.getDescriptor())) {
                 return annotationVisitor = new ForceSignatureAnnotationVisitor();
             } else {
                 return null;
@@ -249,7 +247,7 @@ public class ForceSignatureAnnotationProcessor {
 
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            if (descriptor.equals(FORCE_SIGNATURE_TYPE.getDescriptor())) {
+            if (descriptor.equals(Constants.FORCE_SIGNATURE_TYPE.getDescriptor())) {
                 return annotationVisitor = new ForceSignatureAnnotationVisitor();
             } else {
                 return null;

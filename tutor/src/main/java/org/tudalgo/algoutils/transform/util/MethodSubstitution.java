@@ -10,13 +10,11 @@ import org.objectweb.asm.Type;
 @FunctionalInterface
 public interface MethodSubstitution {
 
-    Type INTERNAL_TYPE = Type.getType(MethodSubstitution.class);
-
     /**
      * Defines the behaviour of method substitution when the substituted method is a constructor.
      * When a constructor method is substituted, either {@code super(...)} or {@code this(...)} must be called
      * before calling {@link #execute(Invocation)}.
-     * This method returns a {@link ConstructorBehaviour} object storing...
+     * This method returns a {@link ConstructorInvocation} object storing...
      * <ol>
      *     <li>the internal class name / owner of the target constructor and</li>
      *     <li>the values that are passed to the constructor of that class.</li>
@@ -27,8 +25,8 @@ public interface MethodSubstitution {
      *
      * @return a record containing the target method's owner and arguments
      */
-    default ConstructorBehaviour getConstructorBehaviour() {
-        return new ConstructorBehaviour("java/lang/Object", "()V");
+    default ConstructorInvocation getConstructorInvocation() {
+        return new ConstructorInvocation("java/lang/Object", "()V");
     }
 
     /**
@@ -48,7 +46,5 @@ public interface MethodSubstitution {
      * @param descriptor the descriptor of the target constructor
      * @param args       the arguments the constructor will be invoked with
      */
-    record ConstructorBehaviour(String owner, String descriptor, Object... args) {
-        public static final Type INTERNAL_TYPE = Type.getType(ConstructorBehaviour.class);
-    }
+    record ConstructorInvocation(String owner, String descriptor, Object... args) {}
 }

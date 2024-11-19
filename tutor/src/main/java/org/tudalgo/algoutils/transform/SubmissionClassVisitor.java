@@ -6,9 +6,6 @@ import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.tudalgo.algoutils.transform.util.TransformationUtils.*;
 import static org.objectweb.asm.Opcodes.*;
@@ -63,9 +60,26 @@ import static org.objectweb.asm.Opcodes.*;
  *         .addParameter(...)  // for each parameter
  *         ...);
  * }
- * if (submissionExecutionHandler.useSubstitution(methodHeader)) {  // if not constructor
- *     submissionExecutionHandler.getSubstitution(methodHeader)
- *         .execute(new Invocation(...) ...);  // same as above
+ * if (submissionExecutionHandler.useSubstitution(methodHeader)) {
+ *     MethodSubstitution methodSubstitution = submissionExecutionHandler.getSubstitution(methodHeader);
+ *
+ *     // if constructor
+ *     MethodSubstitution.ConstructorInvocation constructorInvocation = methodSubstitution.getConstructorInvocation();
+ *     if (constructorInvocation.owner().equals(<superclass>) && constructorInvocation.descriptor().equals(<descriptor>) {
+ *         Object[] args = constructorInvocation.args();
+ *         super(args[0], args[1], ...);
+ *     }
+ *     else if ...  // for every superclass constructor
+ *     else if (constructorInvocation.owner().equals(<class>) && constructorInvocation.descriptor().equals(<descriptor>) {
+ *         Object[] args = constructorInvocation.args();
+ *         this(args[0], args[1], ...);
+ *     }
+ *     else if ... // for every constructor in submission class
+ *     else {
+ *         throw new IllegalArgumentException(...);  // if no matching constructor was found
+ *     }
+ *
+ *     return methodSubstitution.execute(new Invocation(...) ...);  // same as above
  * }
  * if (submissionExecutionHandler.useSubmissionImpl(methodHeader)) {
  *     ...  // submission code
@@ -82,6 +96,7 @@ import static org.objectweb.asm.Opcodes.*;
  * public static Set&lt;MethodHeader&gt; getOriginalMethodHeaders() {...}
  * </pre>
  *
+ * @see SubmissionMethodVisitor
  * @see SubmissionExecutionHandler
  * @author Daniel Mangold
  */
@@ -128,7 +143,6 @@ class SubmissionClassVisitor extends ClassVisitor {
             .map(SolutionClassNode::getClassHeader)
             .orElse(submissionClassInfo.getOriginalClassHeader())
             .visitClass(getDelegate(), version);
-//            .visitClass(getDelegate(), version, Type.getInternalName(SubmissionClassMetadata.class));
     }
 
     /**
@@ -151,487 +165,17 @@ class SubmissionClassVisitor extends ClassVisitor {
      */
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-        Type objectType = Type.getType(Object.class);
-        Type objectArrayType = Type.getType(Object[].class);
-        Type stringType = Type.getType(String.class);
-        Type submissionExecutionHandlerType = SubmissionExecutionHandler.INTERNAL_TYPE;
-        Type sehInternalType = SubmissionExecutionHandler.Internal.INTERNAL_TYPE;
-        Type invocationType = Invocation.INTERNAL_TYPE;
-        Type methodSubstitutionType = MethodSubstitution.INTERNAL_TYPE;
-        Type constructorBehaviourType = MethodSubstitution.ConstructorBehaviour.INTERNAL_TYPE;
-
         MethodHeader methodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
+        MethodVisitor methodVisitor = methodHeader.toMethodVisitor(getDelegate());
         visitedMethods.add(methodHeader);
-        boolean isStatic = (methodHeader.access() & ACC_STATIC) != 0;
-        boolean isConstructor = methodHeader.name().equals("<init>");
 
-        // calculate length of locals array, including "this" if applicable
-        int nextLocalsIndex = (Type.getArgumentsAndReturnSizes(methodHeader.descriptor()) >> 2) - (isStatic ? 1 : 0);
-        int submissionExecutionHandlerIndex = nextLocalsIndex++;
-        int methodHeaderIndex = nextLocalsIndex++;
-        int methodSubstitutionIndex = nextLocalsIndex++;
-        int constructorBehaviourIndex = nextLocalsIndex;
-
-        // calculate default locals for frames
-        List<Object> fullFrameLocals = Arrays.stream(Type.getArgumentTypes(methodHeader.descriptor()))
-            .map(type -> switch (type.getSort()) {
-                case Type.BOOLEAN, Type.BYTE, Type.SHORT, Type.CHAR, Type.INT -> INTEGER;
-                case Type.FLOAT -> FLOAT;
-                case Type.LONG -> LONG;
-                case Type.DOUBLE -> DOUBLE;
-                default -> type.getInternalName();
-            })
-            .collect(Collectors.toList());
-        if (!isStatic) {
-            fullFrameLocals.addFirst(isConstructor ? UNINITIALIZED_THIS : className);
+        // if method is abstract or lambda, skip transformation
+        if ((methodHeader.access() & ACC_ABSTRACT) != 0 ||
+            ((methodHeader.access() & ACC_SYNTHETIC) != 0 && methodHeader.name().startsWith("lambda$"))) {
+            return methodVisitor;
+        } else {
+            return new SubmissionMethodVisitor(methodVisitor, transformationContext, submissionClassInfo, methodHeader);
         }
-
-        return new MethodVisitor(ASM9, methodHeader.toMethodVisitor(getDelegate())) {
-            @Override
-            public void visitCode() {
-                // if method is abstract or lambda, skip transformation
-                if ((methodHeader.access() & ACC_ABSTRACT) != 0 ||
-                    ((methodHeader.access() & ACC_SYNTHETIC) != 0 && methodHeader.name().startsWith("lambda$"))) {
-                    super.visitCode();
-                    return;
-                }
-
-                Label submissionExecutionHandlerVarLabel = new Label();
-                Label methodHeaderVarLabel = new Label();
-                Label substitutionCheckLabel = new Label();
-                Label substitutionStartLabel = new Label();
-                Label substitutionEndLabel = new Label();
-                Label delegationCheckLabel = new Label();
-                Label delegationCodeLabel = new Label();
-                Label submissionCodeLabel = new Label();
-
-                // Setup
-                {
-                    // create SubmissionExecutionHandler$Internal instance and store in locals array
-                    super.visitTypeInsn(NEW, sehInternalType.getInternalName());
-                    super.visitInsn(DUP);
-                    super.visitMethodInsn(INVOKESTATIC,
-                        submissionExecutionHandlerType.getInternalName(),
-                        "getInstance",
-                        Type.getMethodDescriptor(submissionExecutionHandlerType),
-                        false);
-                    super.visitMethodInsn(INVOKESPECIAL,
-                        sehInternalType.getInternalName(),
-                        "<init>",
-                        Type.getMethodDescriptor(Type.VOID_TYPE, submissionExecutionHandlerType),
-                        false);
-                    super.visitVarInsn(ASTORE, submissionExecutionHandlerIndex);
-                    super.visitLabel(submissionExecutionHandlerVarLabel);
-
-                    // replicate method header in bytecode and store in locals array
-                    buildMethodHeader(getDelegate(), methodHeader);
-                    super.visitVarInsn(ASTORE, methodHeaderIndex);
-                    super.visitLabel(methodHeaderVarLabel);
-
-                    super.visitFrame(F_APPEND,
-                        2,
-                        new Object[] {sehInternalType.getInternalName(), methodHeader.getType().getInternalName()},
-                        0,
-                        null);
-                    fullFrameLocals.add(sehInternalType.getInternalName());
-                    fullFrameLocals.add(methodHeader.getType().getInternalName());
-                }
-
-                // Invocation logging
-                {
-                    // check if invocation should be logged
-                    super.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
-                    super.visitVarInsn(ALOAD, methodHeaderIndex);
-                    super.visitMethodInsn(INVOKEVIRTUAL,
-                        sehInternalType.getInternalName(),
-                        "logInvocation",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE, methodHeader.getType()),
-                        false);
-                    super.visitJumpInsn(IFEQ, substitutionCheckLabel); // jump to label if logInvocation(...) == false
-
-                    // intercept parameters
-                    super.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
-                    super.visitVarInsn(ALOAD, methodHeaderIndex);
-                    buildInvocation(Type.getArgumentTypes(methodHeader.descriptor()));
-                    super.visitMethodInsn(INVOKEVIRTUAL,
-                        sehInternalType.getInternalName(),
-                        "addInvocation",
-                        Type.getMethodDescriptor(Type.VOID_TYPE, methodHeader.getType(), invocationType),
-                        false);
-                }
-
-                // Method substitution
-                {
-                    // check if substitution exists for this method
-                    super.visitFrame(F_SAME, 0, null, 0, null);
-                    super.visitLabel(substitutionCheckLabel);
-                    super.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
-                    super.visitVarInsn(ALOAD, methodHeaderIndex);
-                    super.visitMethodInsn(INVOKEVIRTUAL,
-                        sehInternalType.getInternalName(),
-                        "useSubstitution",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE, methodHeader.getType()),
-                        false);
-                    super.visitJumpInsn(IFEQ, defaultTransformationsOnly ? submissionCodeLabel : delegationCheckLabel); // jump to label if useSubstitution(...) == false
-
-                    // get substitution and execute it
-                    super.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
-                    super.visitVarInsn(ALOAD, methodHeaderIndex);
-                    super.visitMethodInsn(INVOKEVIRTUAL,
-                        sehInternalType.getInternalName(),
-                        "getSubstitution",
-                        Type.getMethodDescriptor(methodSubstitutionType, methodHeader.getType()),
-                        false);
-                    super.visitVarInsn(ASTORE, methodSubstitutionIndex);
-                    super.visitFrame(F_APPEND, 1, new Object[] {methodSubstitutionType.getInternalName()}, 0, null);
-                    fullFrameLocals.add(methodSubstitutionType.getInternalName());
-                    super.visitLabel(substitutionStartLabel);
-
-                    if (isConstructor) {
-                        List<MethodHeader> superConstructors = submissionClassInfo.getOriginalSuperClassConstructorHeaders()
-                            .stream()
-                            .map(mh -> submissionClassInfo.getComputedSuperClassConstructorHeader(mh.descriptor()))
-                            .toList();
-                        List<MethodHeader> constructors = submissionClassInfo.getOriginalMethodHeaders()
-                            .stream()
-                            .filter(mh -> mh.name().equals("<init>"))
-                            .map(mh -> submissionClassInfo.getComputedMethodHeader(mh.name(), mh.descriptor()))
-                            .toList();
-                        Label[] labels = Stream.generate(Label::new)
-                            .limit(superConstructors.size() + constructors.size() + 1)
-                            .toArray(Label[]::new);
-                        Label substitutionExecuteLabel = new Label();
-                        AtomicInteger labelIndex = new AtomicInteger();
-
-                        /*
-                         * Representation in source code:
-                         * MethodSubstitution.ConstructorBehaviour cb = methodSubstitution.getConstructorBehaviour();
-                         * if (cb.owner().equals(<superclass>) && cb.descriptor().equals(<descriptor>)) {
-                         *     super(...);
-                         * } else if ...  // for every superclass constructor
-                         * else if (cb.owner().equals(<this class>) && cb.descriptor().equals(<descriptor>)) {
-                         *     this(...);
-                         * } else if ...  // for every regular constructor
-                         * else {
-                         *     throw new IllegalArgumentException(...);
-                         * }
-                         */
-                        super.visitVarInsn(ALOAD, methodSubstitutionIndex);
-                        super.visitMethodInsn(INVOKEINTERFACE,
-                            methodSubstitutionType.getInternalName(),
-                            "getConstructorBehaviour",
-                            Type.getMethodDescriptor(constructorBehaviourType),
-                            true);
-                        super.visitVarInsn(ASTORE, constructorBehaviourIndex);
-                        super.visitFrame(F_APPEND, 1, new Object[] {constructorBehaviourType.getInternalName()}, 0, null);
-                        fullFrameLocals.add(constructorBehaviourType.getInternalName());
-                        super.visitLabel(labels[0]);
-                        for (MethodHeader superConstructorHeader : superConstructors) {
-                            buildConstructorInvocationBranch(superConstructorHeader, substitutionExecuteLabel, labels, labelIndex);
-                        }
-                        for (MethodHeader constructorHeader : constructors) {
-                            buildConstructorInvocationBranch(constructorHeader, substitutionExecuteLabel, labels, labelIndex);
-                        }
-
-                        // if no matching constructor was found, throw an IllegalArgumentException
-                        {
-                            Type illegalArgumentExceptionType = Type.getType(IllegalArgumentException.class);
-                            super.visitTypeInsn(NEW, illegalArgumentExceptionType.getInternalName());
-                            super.visitInsn(DUP);
-
-                            super.visitLdcInsn("No matching constructor was found for owner %s and descriptor %s");
-                            super.visitInsn(ICONST_2);
-                            super.visitTypeInsn(ANEWARRAY, stringType.getInternalName());
-                            super.visitInsn(DUP);
-                            super.visitInsn(ICONST_0);
-                            super.visitVarInsn(ALOAD, constructorBehaviourIndex);
-                            super.visitMethodInsn(INVOKEVIRTUAL,
-                                constructorBehaviourType.getInternalName(),
-                                "owner",
-                                Type.getMethodDescriptor(stringType),
-                                false);
-                            super.visitInsn(AASTORE);
-                            super.visitInsn(DUP);
-                            super.visitInsn(ICONST_1);
-                            super.visitVarInsn(ALOAD, constructorBehaviourIndex);
-                            super.visitMethodInsn(INVOKEVIRTUAL,
-                                constructorBehaviourType.getInternalName(),
-                                "descriptor",
-                                Type.getMethodDescriptor(stringType),
-                                false);
-                            super.visitInsn(AASTORE);
-                            super.visitMethodInsn(INVOKEVIRTUAL,
-                                stringType.getInternalName(),
-                                "formatted",
-                                Type.getMethodDescriptor(stringType, objectArrayType),
-                                false);
-
-                            super.visitMethodInsn(INVOKESPECIAL,
-                                illegalArgumentExceptionType.getInternalName(),
-                                "<init>",
-                                Type.getMethodDescriptor(Type.VOID_TYPE, stringType),
-                                false);
-                            super.visitInsn(ATHROW);
-                        }
-
-                        fullFrameLocals.removeLast();
-                        List<Object> locals = new ArrayList<>(fullFrameLocals);
-                        locals.set(0, className);
-                        super.visitFrame(F_FULL, locals.size(), locals.toArray(), 0, null);
-                        super.visitLabel(substitutionExecuteLabel);
-                        super.visitLocalVariable("constructorBehaviour",
-                            constructorBehaviourType.getDescriptor(),
-                            null,
-                            labels[labelIndex.get()],
-                            substitutionExecuteLabel,
-                            constructorBehaviourIndex);
-                    }
-
-                    super.visitVarInsn(ALOAD, methodSubstitutionIndex);
-                    buildInvocation(Type.getArgumentTypes(methodHeader.descriptor()));
-                    super.visitMethodInsn(INVOKEINTERFACE,
-                        methodSubstitutionType.getInternalName(),
-                        "execute",
-                        Type.getMethodDescriptor(objectType, invocationType),
-                        true);
-                    Type returnType = Type.getReturnType(methodHeader.descriptor());
-                    if (returnType.getSort() == Type.ARRAY || returnType.getSort() == Type.OBJECT) {
-                        super.visitTypeInsn(CHECKCAST, returnType.getInternalName());
-                    } else {
-                        unboxType(getDelegate(), returnType);
-                    }
-                    super.visitInsn(returnType.getOpcode(IRETURN));
-                    super.visitLabel(substitutionEndLabel);
-                    super.visitLocalVariable("methodSubstitution",
-                        methodSubstitutionType.getDescriptor(),
-                        null,
-                        substitutionStartLabel,
-                        substitutionEndLabel,
-                        methodSubstitutionIndex);
-                }
-
-                // Method delegation
-                // if only default transformations are applied, skip delegation
-                if (!defaultTransformationsOnly) {
-                    // check if call should be delegated to solution or not
-                    fullFrameLocals.removeLast();
-                    super.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
-                    super.visitLabel(delegationCheckLabel);
-                    super.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
-                    super.visitVarInsn(ALOAD, methodHeaderIndex);
-                    super.visitMethodInsn(INVOKEVIRTUAL,
-                        sehInternalType.getInternalName(),
-                        "useSubmissionImpl",
-                        Type.getMethodDescriptor(Type.BOOLEAN_TYPE, methodHeader.getType()),
-                        false);
-                    super.visitJumpInsn(IFNE, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == true
-
-                    // replay instructions from solution
-                    super.visitFrame(F_CHOP, 2, null, 0, null);
-                    fullFrameLocals.removeLast();
-                    fullFrameLocals.removeLast();
-                    super.visitLabel(delegationCodeLabel);
-                    super.visitLocalVariable("submissionExecutionHandler",
-                        sehInternalType.getDescriptor(),
-                        null,
-                        submissionExecutionHandlerVarLabel,
-                        delegationCodeLabel,
-                        submissionExecutionHandlerIndex);
-                    super.visitLocalVariable("methodHeader",
-                        methodHeader.getType().getDescriptor(),
-                        null,
-                        methodHeaderVarLabel,
-                        delegationCodeLabel,
-                        methodHeaderIndex);
-                    solutionMethodNodes.get(methodHeader).accept(getDelegate());
-
-                    super.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
-                    super.visitLabel(submissionCodeLabel);
-                } else {
-                    fullFrameLocals.removeLast();
-                    fullFrameLocals.removeLast();
-                    fullFrameLocals.removeLast();
-                    super.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
-                    super.visitLabel(submissionCodeLabel);
-                    super.visitLocalVariable("submissionExecutionHandler",
-                        sehInternalType.getDescriptor(),
-                        null,
-                        submissionExecutionHandlerVarLabel,
-                        submissionCodeLabel,
-                        submissionExecutionHandlerIndex);
-                    super.visitLocalVariable("methodHeader",
-                        methodHeader.getType().getDescriptor(),
-                        null,
-                        methodHeaderVarLabel,
-                        submissionCodeLabel,
-                        methodHeaderIndex);
-                }
-
-                // visit original code
-                super.visitCode();
-            }
-
-            private void buildConstructorInvocationBranch(MethodHeader constructorHeader,
-                                                          Label substitutionExecuteLabel,
-                                                          Label[] labels,
-                                                          AtomicInteger labelIndex) {
-                super.visitVarInsn(ALOAD, constructorBehaviourIndex);
-                super.visitMethodInsn(INVOKEVIRTUAL,
-                    constructorBehaviourType.getInternalName(),
-                    "owner",
-                    Type.getMethodDescriptor(stringType),
-                    false);
-                super.visitLdcInsn(constructorHeader.owner());
-                super.visitMethodInsn(INVOKEVIRTUAL,
-                    stringType.getInternalName(),
-                    "equals",
-                    Type.getMethodDescriptor(Type.BOOLEAN_TYPE, objectType),
-                    false);
-
-                super.visitVarInsn(ALOAD, constructorBehaviourIndex);
-                super.visitMethodInsn(INVOKEVIRTUAL,
-                    constructorBehaviourType.getInternalName(),
-                    "descriptor",
-                    Type.getMethodDescriptor(stringType),
-                    false);
-                super.visitLdcInsn(constructorHeader.descriptor());
-                super.visitMethodInsn(INVOKEVIRTUAL,
-                    stringType.getInternalName(),
-                    "equals",
-                    Type.getMethodDescriptor(Type.BOOLEAN_TYPE, objectType),
-                    false);
-
-                super.visitInsn(IAND);
-                super.visitJumpInsn(IFEQ, labels[labelIndex.get() + 1]);  // jump to next branch if false
-
-                Label argsVarStartLabel = new Label();
-                super.visitVarInsn(ALOAD, constructorBehaviourIndex);
-                super.visitMethodInsn(INVOKEVIRTUAL,
-                    constructorBehaviourType.getInternalName(),
-                    "args",
-                    Type.getMethodDescriptor(objectArrayType),
-                    false);
-                super.visitVarInsn(ASTORE, constructorBehaviourIndex + 1);
-                super.visitFrame(F_APPEND, 1, new Object[] {objectArrayType.getInternalName()}, 0, null);
-                fullFrameLocals.add(objectArrayType.getInternalName());
-                super.visitLabel(argsVarStartLabel);
-
-                super.visitVarInsn(ALOAD, 0);
-                Type[] parameterTypes = Type.getArgumentTypes(constructorHeader.descriptor());
-                for (int i = 0; i < parameterTypes.length; i++) {  // unpack array
-                    super.visitVarInsn(ALOAD, constructorBehaviourIndex + 1);
-                    super.visitIntInsn(SIPUSH, i);
-                    super.visitInsn(AALOAD);
-                    unboxType(getDelegate(), parameterTypes[i]);
-                }
-                super.visitMethodInsn(INVOKESPECIAL,
-                    constructorHeader.owner(),
-                    "<init>",
-                    constructorHeader.descriptor(),
-                    false);
-                super.visitJumpInsn(GOTO, substitutionExecuteLabel);
-
-                fullFrameLocals.removeLast();
-//                List<Object> locals = new ArrayList<>(fullFrameLocals);
-//                locals.set(0, className);
-                super.visitFrame(F_CHOP, 1, null, 0, new Object[0]);
-                super.visitLabel(labels[labelIndex.incrementAndGet()]);
-                super.visitLocalVariable("args",
-                    objectArrayType.getDescriptor(),
-                    null,
-                    argsVarStartLabel,
-                    labels[labelIndex.get()],
-                    constructorBehaviourIndex + 1);
-            }
-
-            @Override
-            public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-                // skip transformation if only default transformations are applied or owner is not part of the submission
-                if (defaultTransformationsOnly || !owner.startsWith(transformationContext.getProjectPrefix())) {
-                    super.visitFieldInsn(opcode, owner, name, descriptor);
-                } else {
-                    FieldHeader fieldHeader = transformationContext.getSubmissionClassInfo(owner).getComputedFieldHeader(name);
-                    super.visitFieldInsn(opcode, fieldHeader.owner(), fieldHeader.name(), fieldHeader.descriptor());
-                }
-            }
-
-            @Override
-            public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-                // skip transformation if only default transformations are applied or owner is not part of the submission
-                MethodHeader methodHeader = new MethodHeader(owner, 0, name, descriptor, null, null);
-                if (transformationContext.methodHasReplacement(methodHeader)) {
-                    MethodHeader replacementMethodHeader = transformationContext.getMethodReplacement(methodHeader);
-                    super.visitMethodInsn(INVOKESTATIC,
-                        replacementMethodHeader.owner(),
-                        replacementMethodHeader.name(),
-                        replacementMethodHeader.descriptor(),
-                        false);
-                } else if (defaultTransformationsOnly || !owner.startsWith(transformationContext.getProjectPrefix())) {
-                    super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-                } else {
-                    methodHeader = transformationContext.getSubmissionClassInfo(owner).getComputedMethodHeader(name, descriptor);
-                    super.visitMethodInsn(opcode, methodHeader.owner(), methodHeader.name(), methodHeader.descriptor(), isInterface);
-                }
-            }
-
-            /**
-             * Builds an {@link Invocation} in bytecode.
-             *
-             * @param argumentTypes an array of parameter types
-             */
-            private void buildInvocation(Type[] argumentTypes) {
-                Type threadType = Type.getType(Thread.class);
-                Type stackTraceElementArrayType = Type.getType(StackTraceElement[].class);
-
-                super.visitTypeInsn(NEW, invocationType.getInternalName());
-                super.visitInsn(DUP);
-                if (!isStatic && !isConstructor) {
-                    super.visitVarInsn(ALOAD, 0);
-                    super.visitMethodInsn(INVOKESTATIC,
-                        threadType.getInternalName(),
-                        "currentThread",
-                        Type.getMethodDescriptor(threadType),
-                        false);
-                    super.visitMethodInsn(INVOKEVIRTUAL,
-                        threadType.getInternalName(),
-                        "getStackTrace",
-                        Type.getMethodDescriptor(stackTraceElementArrayType),
-                        false);
-                    super.visitMethodInsn(INVOKESPECIAL,
-                        invocationType.getInternalName(),
-                        "<init>",
-                        Type.getMethodDescriptor(Type.VOID_TYPE, objectType, stackTraceElementArrayType),
-                        false);
-                } else {
-                    super.visitMethodInsn(INVOKESTATIC,
-                        threadType.getInternalName(),
-                        "currentThread",
-                        Type.getMethodDescriptor(threadType),
-                        false);
-                    super.visitMethodInsn(INVOKEVIRTUAL,
-                        threadType.getInternalName(),
-                        "getStackTrace",
-                        Type.getMethodDescriptor(stackTraceElementArrayType),
-                        false);
-                    super.visitMethodInsn(INVOKESPECIAL,
-                        invocationType.getInternalName(),
-                        "<init>",
-                        Type.getMethodDescriptor(Type.VOID_TYPE, stackTraceElementArrayType),
-                        false);
-                }
-                // load parameter with opcode (ALOAD, ILOAD, etc.) for type and ignore "this", if it exists
-                for (int i = 0; i < argumentTypes.length; i++) {
-                    super.visitInsn(DUP);
-                    super.visitVarInsn(argumentTypes[i].getOpcode(ILOAD), getLocalsIndex(argumentTypes, i) + (isStatic ? 0 : 1));
-                    boxType(getDelegate(), argumentTypes[i]);
-                    super.visitMethodInsn(INVOKEVIRTUAL,
-                        invocationType.getInternalName(),
-                        "addParameter",
-                        Type.getMethodDescriptor(Type.VOID_TYPE, objectType),
-                        false);
-                }
-            }
-        };
     }
 
     /**

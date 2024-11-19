@@ -26,16 +26,6 @@ import java.util.Objects;
  */
 public record MethodHeader(String owner, int access, String name, String descriptor, String signature, String[] exceptions) implements Header {
 
-    private static final Type INTERNAL_TYPE = Type.getType(MethodHeader.class);
-    private static final Type[] INTERNAL_CONSTRUCTOR_TYPES = new Type[] {
-        Type.getType(String.class),
-        Type.INT_TYPE,
-        Type.getType(String.class),
-        Type.getType(String.class),
-        Type.getType(String.class),
-        Type.getType(String[].class)
-    };
-
     /**
      * Constructs a new method header using the given method / constructor.
      *
@@ -58,12 +48,12 @@ public record MethodHeader(String owner, int access, String name, String descrip
 
     @Override
     public Type getType() {
-        return INTERNAL_TYPE;
+        return Constants.METHOD_HEADER_TYPE;
     }
 
     @Override
     public Type[] getConstructorParameterTypes() {
-        return INTERNAL_CONSTRUCTOR_TYPES;
+        return Constants.METHOD_HEADER_CONSTRUCTOR_TYPES;
     }
 
     @Override

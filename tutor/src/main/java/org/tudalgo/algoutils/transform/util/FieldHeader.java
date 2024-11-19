@@ -22,15 +22,6 @@ import java.util.Objects;
  */
 public record FieldHeader(String owner, int access, String name, String descriptor, String signature) implements Header {
 
-    private static final Type INTERNAL_TYPE = Type.getType(FieldHeader.class);
-    private static final Type[] INTERNAL_CONSTRUCTOR_TYPES = new Type[] {
-        Type.getType(String.class),
-        Type.INT_TYPE,
-        Type.getType(String.class),
-        Type.getType(String.class),
-        Type.getType(String.class)
-    };
-
     public FieldHeader(Field field) {
         this(Type.getInternalName(field.getDeclaringClass()),
             field.getModifiers(),
@@ -41,12 +32,12 @@ public record FieldHeader(String owner, int access, String name, String descript
 
     @Override
     public Type getType() {
-        return INTERNAL_TYPE;
+        return Constants.FIELD_HEADER_TYPE;
     }
 
     @Override
     public Type[] getConstructorParameterTypes() {
-        return INTERNAL_CONSTRUCTOR_TYPES;
+        return Constants.FIELD_HEADER_CONSTRUCTOR_TYPES;
     }
 
     @Override

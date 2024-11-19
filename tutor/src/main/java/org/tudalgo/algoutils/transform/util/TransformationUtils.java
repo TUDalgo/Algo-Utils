@@ -275,8 +275,8 @@ public final class TransformationUtils {
         maxStack = stackSize = 2;
         for (int i = 0; i < keys.length; i++) {
             Object value = header.getValue(keys[i]);
-            if (constructorParameterTypes[i].equals(Type.getType(String[].class))) {
-                int stackUsed = buildArray(mv, Type.getType(String.class), (Object[]) value);
+            if (constructorParameterTypes[i].equals(Constants.STRING_ARRAY_TYPE)) {
+                int stackUsed = buildArray(mv, Constants.STRING_TYPE, (Object[]) value);
                 maxStack = Math.max(maxStack, stackSize++ + stackUsed);
             } else {
                 if (value != null) {

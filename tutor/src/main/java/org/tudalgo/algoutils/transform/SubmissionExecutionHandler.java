@@ -1,7 +1,6 @@
 package org.tudalgo.algoutils.transform;
 
 import org.tudalgo.algoutils.transform.util.*;
-import org.objectweb.asm.Type;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -66,8 +65,6 @@ import java.util.*;
  */
 @SuppressWarnings("unused")
 public class SubmissionExecutionHandler {
-
-    public static final Type INTERNAL_TYPE = Type.getType(SubmissionExecutionHandler.class);
 
     private static SubmissionExecutionHandler instance;
 
@@ -261,8 +258,6 @@ public class SubmissionExecutionHandler {
      * Collection of methods injected into the bytecode of transformed methods.
      */
     public final class Internal {
-
-        public static final Type INTERNAL_TYPE = Type.getType(Internal.class);
 
         // Invocation logging
 
