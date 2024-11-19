@@ -9,29 +9,36 @@ import java.util.Objects;
 
 /**
  * This class holds information about the context of an invocation.
- * Context means the object a method was invoked on and the parameters it was invoked with.
+ * Context means the object a method was invoked on and the parameters it was invoked with
+ * as well as the stack trace up to the point of invocation.
+ * @author Daniel Mangold
  */
 public class Invocation {
 
     public static final Type INTERNAL_TYPE = Type.getType(Invocation.class);
 
     private final Object instance;
+    private final StackTraceElement[] stackTrace;
     private final List<Object> parameterValues = new ArrayList<>();
 
     /**
      * Constructs a new invocation.
+     *
+     * @param stackTrace the stack trace up to the point of invocation
      */
-    public Invocation() {
-        this(null);
+    public Invocation(StackTraceElement[] stackTrace) {
+        this(null, stackTrace);
     }
 
     /**
      * Constructs a new invocation.
      *
-     * @param instance the object on which this invocation takes place
+     * @param instance   the object on which this invocation takes place
+     * @param stackTrace the stack trace up to the point of invocation
      */
-    public Invocation(Object instance) {
+    public Invocation(Object instance, StackTraceElement[] stackTrace) {
         this.instance = instance;
+        this.stackTrace = stackTrace;
     }
 
     /**
@@ -41,6 +48,19 @@ public class Invocation {
      */
     public Object getInstance() {
         return instance;
+    }
+
+    /**
+     * Returns the stack trace up to the point of this method's invocation.
+     *
+     * @return the stack trace
+     */
+    public StackTraceElement[] getStackTrace() {
+        return stackTrace;
+    }
+
+    public StackTraceElement getCallerStackTraceElement() {
+        return stackTrace[1];
     }
 
     /**

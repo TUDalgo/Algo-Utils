@@ -156,6 +156,7 @@ class SubmissionClassVisitor extends ClassVisitor {
         Type stringType = Type.getType(String.class);
         Type submissionExecutionHandlerType = SubmissionExecutionHandler.INTERNAL_TYPE;
         Type sehInternalType = SubmissionExecutionHandler.Internal.INTERNAL_TYPE;
+        Type invocationType = Invocation.INTERNAL_TYPE;
         Type methodSubstitutionType = MethodSubstitution.INTERNAL_TYPE;
         Type constructorBehaviourType = MethodSubstitution.ConstructorBehaviour.INTERNAL_TYPE;
 
@@ -255,7 +256,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                     super.visitMethodInsn(INVOKEVIRTUAL,
                         sehInternalType.getInternalName(),
                         "addInvocation",
-                        Type.getMethodDescriptor(Type.VOID_TYPE, methodHeader.getType(), Invocation.INTERNAL_TYPE),
+                        Type.getMethodDescriptor(Type.VOID_TYPE, methodHeader.getType(), invocationType),
                         false);
                 }
 
@@ -391,7 +392,7 @@ class SubmissionClassVisitor extends ClassVisitor {
                     super.visitMethodInsn(INVOKEINTERFACE,
                         methodSubstitutionType.getInternalName(),
                         "execute",
-                        Type.getMethodDescriptor(objectType, Invocation.INTERNAL_TYPE),
+                        Type.getMethodDescriptor(objectType, invocationType),
                         true);
                     Type returnType = Type.getReturnType(methodHeader.descriptor());
                     if (returnType.getSort() == Type.ARRAY || returnType.getSort() == Type.OBJECT) {
@@ -571,31 +572,54 @@ class SubmissionClassVisitor extends ClassVisitor {
              * @param argumentTypes an array of parameter types
              */
             private void buildInvocation(Type[] argumentTypes) {
-                super.visitTypeInsn(NEW, Invocation.INTERNAL_TYPE.getInternalName());
+                Type threadType = Type.getType(Thread.class);
+                Type stackTraceElementArrayType = Type.getType(StackTraceElement[].class);
+
+                super.visitTypeInsn(NEW, invocationType.getInternalName());
                 super.visitInsn(DUP);
                 if (!isStatic && !isConstructor) {
                     super.visitVarInsn(ALOAD, 0);
+                    super.visitMethodInsn(INVOKESTATIC,
+                        threadType.getInternalName(),
+                        "currentThread",
+                        Type.getMethodDescriptor(threadType),
+                        false);
+                    super.visitMethodInsn(INVOKEVIRTUAL,
+                        threadType.getInternalName(),
+                        "getStackTrace",
+                        Type.getMethodDescriptor(stackTraceElementArrayType),
+                        false);
                     super.visitMethodInsn(INVOKESPECIAL,
-                        Invocation.INTERNAL_TYPE.getInternalName(),
+                        invocationType.getInternalName(),
                         "<init>",
-                        "(Ljava/lang/Object;)V",
+                        Type.getMethodDescriptor(Type.VOID_TYPE, objectType, stackTraceElementArrayType),
                         false);
                 } else {
+                    super.visitMethodInsn(INVOKESTATIC,
+                        threadType.getInternalName(),
+                        "currentThread",
+                        Type.getMethodDescriptor(threadType),
+                        false);
+                    super.visitMethodInsn(INVOKEVIRTUAL,
+                        threadType.getInternalName(),
+                        "getStackTrace",
+                        Type.getMethodDescriptor(stackTraceElementArrayType),
+                        false);
                     super.visitMethodInsn(INVOKESPECIAL,
-                        Invocation.INTERNAL_TYPE.getInternalName(),
+                        invocationType.getInternalName(),
                         "<init>",
-                        "()V",
+                        Type.getMethodDescriptor(Type.VOID_TYPE, stackTraceElementArrayType),
                         false);
                 }
+                // load parameter with opcode (ALOAD, ILOAD, etc.) for type and ignore "this", if it exists
                 for (int i = 0; i < argumentTypes.length; i++) {
                     super.visitInsn(DUP);
-                    // load parameter with opcode (ALOAD, ILOAD, etc.) for type and ignore "this", if it exists
                     super.visitVarInsn(argumentTypes[i].getOpcode(ILOAD), getLocalsIndex(argumentTypes, i) + (isStatic ? 0 : 1));
                     boxType(getDelegate(), argumentTypes[i]);
                     super.visitMethodInsn(INVOKEVIRTUAL,
-                        Invocation.INTERNAL_TYPE.getInternalName(),
+                        invocationType.getInternalName(),
                         "addParameter",
-                        "(Ljava/lang/Object;)V",
+                        Type.getMethodDescriptor(Type.VOID_TYPE, objectType),
                         false);
                 }
             }
