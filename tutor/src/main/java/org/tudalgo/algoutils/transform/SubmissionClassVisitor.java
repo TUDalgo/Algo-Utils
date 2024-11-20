@@ -215,11 +215,7 @@ class SubmissionClassVisitor extends ClassVisitor {
         ClassHeader classHeader = submissionClassInfo.getOriginalClassHeader();
         Label startLabel = new Label();
         Label endLabel = new Label();
-        MethodVisitor mv = super.visitMethod(ACC_PUBLIC | ACC_STATIC,
-            "getOriginalClassHeader",
-            Type.getMethodDescriptor(classHeader.getType()),
-            null,
-            null);
+        MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_CLASS_HEADER.toMethodVisitor(getDelegate());
 
         mv.visitLabel(startLabel);
         int maxStack = buildClassHeader(mv, classHeader);
@@ -243,12 +239,7 @@ class SubmissionClassVisitor extends ClassVisitor {
         Label startLabel = new Label();
         Label endLabel = new Label();
         int maxStack, stackSize;
-        Type setType = Type.getType(Set.class);
-        MethodVisitor mv = super.visitMethod(ACC_PUBLIC | ACC_STATIC,
-            "getOriginalFieldHeaders",
-            Type.getMethodDescriptor(setType),
-            "()L%s<%s>;".formatted(setType.getInternalName(), Type.getDescriptor(FieldHeader.class)),
-            null);
+        MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_FIELD_HEADERS.toMethodVisitor(getDelegate());
 
         mv.visitLabel(startLabel);
         mv.visitIntInsn(SIPUSH, fieldHeaders.size());
@@ -266,9 +257,9 @@ class SubmissionClassVisitor extends ClassVisitor {
             stackSize -= 3;
         }
         mv.visitMethodInsn(INVOKESTATIC,
-            setType.getInternalName(),
+            Constants.SET_TYPE.getInternalName(),
             "of",
-            Type.getMethodDescriptor(setType, Type.getType(Object[].class)),
+            Type.getMethodDescriptor(Constants.SET_TYPE, Type.getType(Object[].class)),
             true);
         mv.visitInsn(ARETURN);
         mv.visitLabel(endLabel);
@@ -290,12 +281,7 @@ class SubmissionClassVisitor extends ClassVisitor {
         Label startLabel = new Label();
         Label endLabel = new Label();
         int maxStack, stackSize;
-        Type setType = Type.getType(Set.class);
-        MethodVisitor mv = super.visitMethod(ACC_PUBLIC | ACC_STATIC,
-            "getOriginalMethodHeaders",
-            Type.getMethodDescriptor(setType),
-            "()L%s<%s>;".formatted(setType.getInternalName(), Type.getDescriptor(MethodHeader.class)),
-            null);
+        MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_METHODS_HEADERS.toMethodVisitor(getDelegate());
 
         mv.visitLabel(startLabel);
         mv.visitIntInsn(SIPUSH, methodHeaders.size());
@@ -313,9 +299,9 @@ class SubmissionClassVisitor extends ClassVisitor {
             stackSize -= 3;
         }
         mv.visitMethodInsn(INVOKESTATIC,
-            setType.getInternalName(),
+            Constants.SET_TYPE.getInternalName(),
             "of",
-            Type.getMethodDescriptor(setType, Type.getType(Object[].class)),
+            Type.getMethodDescriptor(Constants.SET_TYPE, Type.getType(Object[].class)),
             true);
         mv.visitInsn(ARETURN);
         mv.visitLabel(endLabel);

@@ -9,6 +9,8 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Objects;
 
+import static org.objectweb.asm.Opcodes.*;
+
 /**
  * A record holding information on the header of a method as declared in java bytecode.
  * {@code owner} as well as the values of {@code exceptions} use the internal name
@@ -77,6 +79,21 @@ public record MethodHeader(String owner, int access, String name, String descrip
      */
     public MethodVisitor toMethodVisitor(ClassVisitor delegate) {
         return delegate.visitMethod(access, name, descriptor, signature, exceptions);
+    }
+
+    /**
+     * Visits a method instruction in the given method visitor using the information stored in this record.
+     *
+     * @param methodVisitor the method visitor to use
+     * @param isInterface   true, if the method's owner is an interface
+     */
+    public void toMethodInsn(MethodVisitor methodVisitor, boolean isInterface) {
+        int opcode = isInterface ? INVOKEINTERFACE : (access & ACC_STATIC) != 0 ? INVOKESTATIC : name.equals("<init>") ? INVOKESPECIAL : INVOKEVIRTUAL;
+        methodVisitor.visitMethodInsn(opcode,
+            owner,
+            name,
+            descriptor,
+            isInterface);
     }
 
     /**

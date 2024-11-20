@@ -107,12 +107,7 @@ public class SolutionClassNode extends ClassNode {
             public void visitMethodInsn(int opcodeAndSource, String owner, String name, String descriptor, boolean isInterface) {
                 MethodHeader methodHeader = new MethodHeader(owner, 0, name, descriptor, null, null);
                 if (transformationContext.methodHasReplacement(methodHeader)) {
-                    MethodHeader replacementMethodHeader = transformationContext.getMethodReplacement(methodHeader);
-                    super.visitMethodInsn(INVOKESTATIC,
-                        replacementMethodHeader.owner(),
-                        replacementMethodHeader.name(),
-                        replacementMethodHeader.descriptor(),
-                        false);
+                    transformationContext.getMethodReplacement(methodHeader).toMethodInsn(getDelegate(), false);
                 } else {
                     super.visitMethodInsn(opcodeAndSource,
                         owner,

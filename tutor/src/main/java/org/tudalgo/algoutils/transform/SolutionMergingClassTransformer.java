@@ -10,6 +10,7 @@ import org.objectweb.asm.Type;
 import org.sourcegrade.jagr.api.testing.ClassTransformer;
 
 import java.lang.reflect.Executable;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -194,6 +195,10 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
          */
         @SuppressWarnings("unchecked")
         public Builder addMethodReplacement(MethodHeader targetMethodHeader, MethodHeader replacementMethodHeader) {
+            if (!Modifier.isStatic(replacementMethodHeader.access())) {
+                throw new IllegalArgumentException("Replacement method " + replacementMethodHeader + " is not static");
+            }
+
             ((Map<MethodHeader, MethodHeader>) configuration.get(Config.METHOD_REPLACEMENTS))
                 .put(targetMethodHeader, replacementMethodHeader);
             return this;

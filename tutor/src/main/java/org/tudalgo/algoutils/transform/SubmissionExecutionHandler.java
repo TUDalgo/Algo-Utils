@@ -29,11 +29,6 @@ import java.util.*;
  *
  *     private final SubmissionExecutionHandler executionHandler = SubmissionExecutionHandler.getInstance();
  *
- *     @BeforeAll
- *     public static void start() {
- *         Utils.transformSubmission(); // In case Jagr is not present
- *     }
- *
  *     @BeforeEach
  *     public void setup() {
  *         // Pre-test setup, if necessary. Useful for substitution:
@@ -100,7 +95,7 @@ public class SubmissionExecutionHandler {
     public static ClassHeader getOriginalClassHeader(Class<?> clazz) {
         try {
             return (ClassHeader) MethodHandles.lookup()
-                .findStatic(clazz, "getOriginalClassHeader", MethodType.methodType(ClassHeader.class))
+                .findStatic(clazz, Constants.INJECTED_GET_ORIGINAL_CLASS_HEADER.name(), MethodType.methodType(ClassHeader.class))
                 .invokeExact();
         } catch (Throwable e) {
             throw new RuntimeException(e);
@@ -117,7 +112,7 @@ public class SubmissionExecutionHandler {
     public static Set<FieldHeader> getOriginalFieldHeaders(Class<?> clazz) {
         try {
             return (Set<FieldHeader>) MethodHandles.lookup()
-                .findStatic(clazz, "getOriginalFieldHeaders", MethodType.methodType(Set.class))
+                .findStatic(clazz, Constants.INJECTED_GET_ORIGINAL_FIELD_HEADERS.name(), MethodType.methodType(Set.class))
                 .invokeExact();
         } catch (Throwable e) {
             throw new RuntimeException(e);
@@ -134,7 +129,7 @@ public class SubmissionExecutionHandler {
     public static Set<MethodHeader> getOriginalMethodHeaders(Class<?> clazz) {
         try {
             return (Set<MethodHeader>) MethodHandles.lookup()
-                .findStatic(clazz, "getOriginalMethodHeaders", MethodType.methodType(Set.class))
+                .findStatic(clazz, Constants.INJECTED_GET_ORIGINAL_METHODS_HEADERS.name(), MethodType.methodType(Set.class))
                 .invokeExact();
         } catch (Throwable e) {
             throw new RuntimeException(e);
