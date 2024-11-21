@@ -64,13 +64,13 @@ public final class Constants {
         ACC_PUBLIC | ACC_STATIC,
         "getOriginalFieldHeaders",
         Type.getMethodDescriptor(SET_TYPE),
-        "()L%s<%s>;".formatted(SET_TYPE.getInternalName(), FIELD_HEADER_TYPE.getInternalName()),
+        "()L%s<%s>;".formatted(SET_TYPE.getInternalName(), FIELD_HEADER_TYPE.getDescriptor()),
         null);
     public static final MethodHeader INJECTED_GET_ORIGINAL_METHODS_HEADERS = new MethodHeader(null,
         ACC_PUBLIC | ACC_STATIC,
         "getOriginalMethodHeaders",
         Type.getMethodDescriptor(SET_TYPE),
-        "()L%s<%s>;".formatted(SET_TYPE.getInternalName(), METHOD_HEADER_TYPE.getInternalName()),
+        "()L%s<%s>;".formatted(SET_TYPE.getInternalName(), METHOD_HEADER_TYPE.getDescriptor()),
         null);
 
     public static final MethodHeader SUBMISSION_EXECUTION_HANDLER_GET_INSTANCE;
