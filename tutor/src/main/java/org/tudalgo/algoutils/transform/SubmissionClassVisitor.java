@@ -6,6 +6,7 @@ import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.tudalgo.algoutils.transform.util.TransformationUtils.*;
 import static org.objectweb.asm.Opcodes.*;
@@ -235,7 +236,10 @@ class SubmissionClassVisitor extends ClassVisitor {
      * This injected method returns the set of original field headers of the class pre-transformation.
      */
     private void fieldMetadata() {
-        Set<FieldHeader> fieldHeaders = submissionClassInfo.getOriginalFieldHeaders();
+        Set<FieldHeader> fieldHeaders = submissionClassInfo.getOriginalFieldHeaders()
+            .stream()
+            .filter(fieldHeader -> (fieldHeader.access() & ACC_SYNTHETIC) == 0)
+            .collect(Collectors.toSet());
         Label startLabel = new Label();
         Label endLabel = new Label();
         int maxStack, stackSize;
@@ -277,7 +281,10 @@ class SubmissionClassVisitor extends ClassVisitor {
      * This injected method returns the set of original method headers of the class pre-transformation.
      */
     private void methodMetadata() {
-        Set<MethodHeader> methodHeaders = submissionClassInfo.getOriginalMethodHeaders();
+        Set<MethodHeader> methodHeaders = submissionClassInfo.getOriginalMethodHeaders()
+            .stream()
+            .filter(methodHeader -> (methodHeader.access() & ACC_SYNTHETIC) == 0)
+            .collect(Collectors.toSet());;
         Label startLabel = new Label();
         Label endLabel = new Label();
         int maxStack, stackSize;
