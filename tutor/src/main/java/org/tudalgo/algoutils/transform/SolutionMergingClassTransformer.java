@@ -1,5 +1,6 @@
 package org.tudalgo.algoutils.transform;
 
+import org.sourcegrade.jagr.api.testing.extension.JagrExecutionCondition;
 import org.tudalgo.algoutils.student.annotation.ForceSignature;
 import org.tudalgo.algoutils.transform.util.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
@@ -10,6 +11,7 @@ import org.objectweb.asm.Type;
 import org.sourcegrade.jagr.api.testing.ClassTransformer;
 
 import java.lang.reflect.Executable;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -109,8 +111,18 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
 
     @Override
     public void transform(ClassReader reader, ClassWriter writer) {
-        String submissionClassName = reader.getClassName();
-        reader.accept(new SubmissionClassVisitor(writer, transformationContext, submissionClassName), 0);
+        if (!new JagrExecutionCondition().evaluateExecutionCondition(null).isDisabled()) {  // if Jagr is present
+            try {
+                Method getClassLoader = ClassWriter.class.getDeclaredMethod("getClassLoader");
+                getClassLoader.setAccessible(true);
+                transformationContext.setSubmissionClassLoader((ClassLoader) getClassLoader.invoke(writer));
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            transformationContext.setSubmissionClassLoader(getClass().getClassLoader());
+        }
+        reader.accept(new SubmissionClassVisitor(writer, transformationContext, reader.getClassName()), 0);
     }
 
     /**

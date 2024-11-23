@@ -176,8 +176,8 @@ public final class TransformationUtils {
      */
     public static SubmissionClassInfo readSubmissionClass(TransformationContext transformationContext, String className) {
         ClassReader submissionClassReader;
-        String submissionClassFilePath = "/%s.class".formatted(className);
-        try (InputStream is = SolutionMergingClassTransformer.class.getResourceAsStream(submissionClassFilePath)) {
+        String submissionClassFilePath = className + ".class";
+        try (InputStream is = transformationContext.getSubmissionClassLoader().getResourceAsStream(submissionClassFilePath)) {
             if (is == null) {
                 return null;
             }
