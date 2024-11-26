@@ -1,17 +1,14 @@
 package org.tudalgo.algoutils.transform;
 
 import org.tudalgo.algoutils.transform.util.*;
-import kotlin.Pair;
 import kotlin.Triple;
 import org.objectweb.asm.*;
-import org.tudalgo.algoutils.tutor.general.match.MatchingUtils;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
@@ -64,14 +61,8 @@ public class SubmissionClassInfo extends ClassVisitor {
         if (fsAnnotationProcessor.classIdentifierIsForced()) {
             this.computedClassName = fsAnnotationProcessor.forcedClassIdentifier();
         } else {
-            // If not forced, get the closest matching solution class (at least 90% similarity)
-            this.computedClassName = transformationContext.solutionClasses()
-                .keySet()
-                .stream()
-                .map(s -> new Pair<>(s, MatchingUtils.similarity(originalClassName, s)))
-                .filter(pair -> pair.getSecond() >= transformationContext.getSimilarity())
-                .max(Comparator.comparing(Pair::getSecond))
-                .map(Pair::getFirst)
+            // If not forced, get the closest matching solution class
+            this.computedClassName = Optional.ofNullable(transformationContext.getSolutionClassName(originalClassName))
                 .orElse(originalClassName);
         }
         this.solutionClass = transformationContext.solutionClasses().get(computedClassName);
@@ -184,59 +175,87 @@ public class SubmissionClassInfo extends ClassVisitor {
 
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-        FieldHeader submissionFieldHeader = new FieldHeader(originalClassName, access, name, descriptor, signature);
-        FieldHeader solutionFieldHeader;
-        if (fsAnnotationProcessor.fieldIdentifierIsForced(name)) {
-            solutionFieldHeader = fsAnnotationProcessor.forcedFieldHeader(name);
-        } else if (solutionClass != null) {
-            solutionFieldHeader = solutionClass.getFields()
-                .keySet()
-                .stream()
-                .map(fieldHeader -> new Pair<>(fieldHeader, MatchingUtils.similarity(name, fieldHeader.name())))
-                .filter(pair -> pair.getSecond() >= transformationContext.getSimilarity())
-                .max(Comparator.comparing(Pair::getSecond))
-                .map(Pair::getFirst)
-                .orElse(submissionFieldHeader);
-        } else {
-            solutionFieldHeader = submissionFieldHeader;
-        }
-
-        fields.put(submissionFieldHeader, solutionFieldHeader);
+        fields.put(new FieldHeader(originalClassName, access, name, descriptor, signature), null);
         return null;
     }
 
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
         MethodHeader submissionMethodHeader = new MethodHeader(originalClassName, access, name, descriptor, signature, exceptions);
-        if ((access & ACC_SYNTHETIC) != 0 && name.startsWith("lambda$")) {
+        if ((access & ACC_SYNTHETIC) != 0 && name.startsWith("lambda$")) {  // if method is lambda
             methods.put(submissionMethodHeader, submissionMethodHeader);
             return null;
         }
 
-        MethodHeader solutionMethodHeader;
-        if (fsAnnotationProcessor.methodSignatureIsForced(name, descriptor)) {
-            solutionMethodHeader = fsAnnotationProcessor.forcedMethodHeader(name, descriptor);
-        } else if (solutionClass != null) {
-            solutionMethodHeader = solutionClass.getMethods()
-                .keySet()
-                .stream()
-                .map(methodHeader -> new Triple<>(methodHeader,
-                    MatchingUtils.similarity(name, methodHeader.name()),
-                    MatchingUtils.similarity(descriptor, methodHeader.descriptor())))
-                .filter(triple -> triple.getSecond() >= transformationContext.getSimilarity() && triple.getThird() >= transformationContext.getSimilarity())
-                .max(Comparator.comparing(Triple<MethodHeader, Double, Double>::getSecond).thenComparing(Triple::getThird))
-                .map(Triple::getFirst)
-                .orElse(submissionMethodHeader);
-        } else {
-            solutionMethodHeader = submissionMethodHeader;
-        }
-
-        methods.put(submissionMethodHeader, solutionMethodHeader);
+        methods.put(submissionMethodHeader, null);
         return null;
     }
 
-    @Override
-    public void visitEnd() {
+    public void mapToSolutionClass() {
+        SimilarityMapper<FieldHeader> fieldsSimilarityMapper = new SimilarityMapper<>(
+            fields.keySet(),
+            solutionClass == null ? Collections.emptyList() : solutionClass.getFields().keySet(),
+            transformationContext.getSimilarity(),
+            FieldHeader::name
+        );
+        for (FieldHeader submissionFieldHeader : fields.keySet()) {
+            FieldHeader solutionFieldHeader;
+            Type fieldType = Type.getType(submissionFieldHeader.descriptor());
+            FieldHeader fallbackFieldHeader = new FieldHeader(computedClassName,
+                submissionFieldHeader.access(),
+                submissionFieldHeader.name(),
+                fieldType.getSort() == Type.OBJECT ?
+                    "L" + TransformationUtils.getComputedName(transformationContext, fieldType.getInternalName()) + ";" :
+                    fieldType.getSort() == Type.ARRAY ?
+                        TransformationUtils.getComputedName(transformationContext, fieldType.getInternalName()) :
+                        submissionFieldHeader.descriptor(),
+                submissionFieldHeader.signature());
+            if (fsAnnotationProcessor.fieldIdentifierIsForced(submissionFieldHeader.name())) {
+                solutionFieldHeader = fsAnnotationProcessor.forcedFieldHeader(submissionFieldHeader.name());
+            } else if (solutionClass != null) {
+                solutionFieldHeader = solutionClass.getFields()
+                    .keySet()
+                    .stream()
+                    .filter(fieldHeader -> fieldHeader.equals(fieldsSimilarityMapper.getBestMatch(submissionFieldHeader)))
+                    .findAny()
+                    .orElse(fallbackFieldHeader);
+            } else {
+                solutionFieldHeader = fallbackFieldHeader;
+            }
+            fields.put(submissionFieldHeader, solutionFieldHeader);
+        }
+
+        SimilarityMapper<MethodHeader> methodsSimilarityMapper = new SimilarityMapper<>(
+            methods.keySet(),
+            solutionClass == null ? Collections.emptyList() : solutionClass.getMethods().keySet(),
+            transformationContext.getSimilarity(),
+            methodHeader -> methodHeader.name() + methodHeader.descriptor()
+        );
+        for (MethodHeader submissionMethodHeader : methods.keySet()) {
+            String submissionMethodName = submissionMethodHeader.name();
+            String submissionMethodDescriptor = submissionMethodHeader.descriptor();
+            MethodHeader solutionMethodHeader;
+            MethodHeader fallbackMethodHeader = new MethodHeader(computedClassName,
+                submissionMethodHeader.access(),
+                submissionMethodHeader.name(),
+                submissionMethodHeader.descriptor(),
+                submissionMethodHeader.signature(),
+                submissionMethodHeader.exceptions());
+            if (fsAnnotationProcessor.methodSignatureIsForced(submissionMethodName, submissionMethodDescriptor)) {
+                solutionMethodHeader = fsAnnotationProcessor.forcedMethodHeader(submissionMethodName, submissionMethodDescriptor);
+            } else if (solutionClass != null) {
+                solutionMethodHeader = solutionClass.getMethods()
+                    .keySet()
+                    .stream()
+                    .filter(methodHeader -> methodHeader.equals(methodsSimilarityMapper.getBestMatch(submissionMethodHeader)))
+                    .findAny()
+                    .orElse(fallbackMethodHeader);
+            } else {
+                solutionMethodHeader = fallbackMethodHeader;
+            }
+            methods.put(submissionMethodHeader, solutionMethodHeader);
+        }
+
         for (Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>> triple : superClassMembers) {
             if (triple.getFirst().equals(superClass)) {
                 triple.getThird()
@@ -284,7 +303,7 @@ public class SubmissionClassInfo extends ClassVisitor {
             return;
         }
 
-        if (className.startsWith(transformationContext.getProjectPrefix())) {
+        if (transformationContext.isSubmissionClass(className)) {
             SubmissionClassInfo submissionClassInfo = transformationContext.getSubmissionClassInfo(className);
             superClassMembers.add(new Triple<>(className,
                 submissionClassInfo.fields.entrySet()
@@ -299,23 +318,16 @@ public class SubmissionClassInfo extends ClassVisitor {
         } else {
             try {
                 Class<?> clazz = Class.forName(className.replace('/', '.'));
-                Map<FieldHeader, FieldHeader> fieldHeaders = new HashMap<>();
-                for (Field field : clazz.getDeclaredFields()) {
-                    if (Modifier.isPrivate(field.getModifiers())) continue;
-                    FieldHeader fieldHeader = new FieldHeader(field);
-                    fieldHeaders.put(fieldHeader, fieldHeader);
-                }
-                Map<MethodHeader, MethodHeader> methodHeaders = new HashMap<>();
-                for (Constructor<?> constructor : clazz.getDeclaredConstructors()) {
-                    if (Modifier.isPrivate(constructor.getModifiers())) continue;
-                    MethodHeader methodHeader = new MethodHeader(constructor);
-                    methodHeaders.put(methodHeader, methodHeader);
-                }
-                for (Method method : clazz.getDeclaredMethods()) {
-                    if (Modifier.isPrivate(method.getModifiers())) continue;
-                    MethodHeader methodHeader = new MethodHeader(method);
-                    methodHeaders.put(methodHeader, methodHeader);
-                }
+                Map<FieldHeader, FieldHeader> fieldHeaders = Arrays.stream(clazz.getDeclaredFields())
+                    .filter(field -> !Modifier.isPrivate(field.getModifiers()))
+                    .map(FieldHeader::new)
+                    .collect(Collectors.toMap(Function.identity(), Function.identity()));
+                Map<MethodHeader, MethodHeader> methodHeaders = Stream.concat(
+                        Arrays.stream(clazz.getDeclaredConstructors()),
+                        Arrays.stream(clazz.getDeclaredMethods()))
+                    .filter(executable -> !Modifier.isPrivate(executable.getModifiers()))
+                    .map(MethodHeader::new)
+                    .collect(Collectors.toMap(Function.identity(), Function.identity()));
                 superClassMembers.add(new Triple<>(className, fieldHeaders, methodHeaders));
                 if (clazz.getSuperclass() != null) {
                     resolveSuperClassMembers(superClassMembers,

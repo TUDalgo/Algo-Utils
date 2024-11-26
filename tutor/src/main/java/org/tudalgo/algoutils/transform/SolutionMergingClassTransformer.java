@@ -1,5 +1,6 @@
 package org.tudalgo.algoutils.transform;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.sourcegrade.jagr.api.testing.extension.JagrExecutionCondition;
 import org.tudalgo.algoutils.student.annotation.ForceSignature;
 import org.tudalgo.algoutils.transform.util.MethodHeader;
@@ -15,6 +16,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * A class transformer that allows logging, substitution and delegation of method invocations.
@@ -70,6 +72,7 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
      * An object providing context throughout the transformation processing chain.
      */
     private final TransformationContext transformationContext;
+    private boolean readSubmissionClasses = false;
 
     /**
      * Constructs a new {@link SolutionMergingClassTransformer} instance.
@@ -110,17 +113,37 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public void transform(ClassReader reader, ClassWriter writer) {
         if (!new JagrExecutionCondition().evaluateExecutionCondition(null).isDisabled()) {  // if Jagr is present
             try {
                 Method getClassLoader = ClassWriter.class.getDeclaredMethod("getClassLoader");
                 getClassLoader.setAccessible(true);
-                transformationContext.setSubmissionClassLoader((ClassLoader) getClassLoader.invoke(writer));
-            } catch (ReflectiveOperationException e) {
+                ClassLoader submissionClassLoader = (ClassLoader) getClassLoader.invoke(writer);
+                transformationContext.setSubmissionClassLoader(submissionClassLoader);
+
+                if (!readSubmissionClasses) {
+                    Map<String, ?> submissionInfo = new ObjectMapper()
+                        .readValue(submissionClassLoader.getResourceAsStream("submission-info.json"), Map.class);
+                    Set<String> submissionClassNames = ((List<Map<String, ?>>) submissionInfo.get("sourceSets")).stream()
+                        .filter(sourceSet -> sourceSet.get("name").equals("main"))
+                        .findAny()
+                        .map(sourceSet -> ((Map<String, List<String>>) sourceSet.get("files")).get("java"))
+                        .orElseThrow()
+                        .stream()
+                        .map(submissionClassName -> submissionClassName.replaceAll("\\.java$", ""))
+                        .collect(Collectors.toSet());
+                    transformationContext.setSubmissionClassNames(submissionClassNames);
+                    transformationContext.computeClassesSimilarity();
+
+                    readSubmissionClasses = true;
+                }
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         } else {
-            transformationContext.setSubmissionClassLoader(getClass().getClassLoader());
+            // TODO: fix this for regular JUnit run
+            transformationContext.setSubmissionClassLoader(null);
         }
         reader.accept(new SubmissionClassVisitor(writer, transformationContext, reader.getClassName()), 0);
     }

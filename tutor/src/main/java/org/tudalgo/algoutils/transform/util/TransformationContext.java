@@ -1,11 +1,11 @@
 package org.tudalgo.algoutils.transform.util;
 
+import org.objectweb.asm.Type;
 import org.tudalgo.algoutils.transform.SolutionClassNode;
 import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
 import org.tudalgo.algoutils.transform.SubmissionClassInfo;
 
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * A record for holding context information for the transformation process.
@@ -17,7 +17,10 @@ public final class TransformationContext {
     private final Map<SolutionMergingClassTransformer.Config, Object> configuration;
     private final Map<String, SolutionClassNode> solutionClasses;
     private final Map<String, SubmissionClassInfo> submissionClasses;
+
     private ClassLoader submissionClassLoader;
+    private Set<String> submissionClassNames;
+    private SimilarityMapper<String> classSimilarityMapper;
 
     /**
      * Constructs a new {@link TransformationContext}.
@@ -84,6 +87,18 @@ public final class TransformationContext {
             .get(methodHeader);
     }
 
+    public void setSubmissionClassNames(Set<String> submissionClassNames) {
+        this.submissionClassNames = submissionClassNames;
+    }
+
+    public boolean isSubmissionClass(String submissionClassName) {
+        if (submissionClassName.startsWith("[")) {
+            return isSubmissionClass(Type.getType(submissionClassName).getElementType().getInternalName());
+        } else {
+            return submissionClassNames.contains(submissionClassName);
+        }
+    }
+
     /**
      * Returns the {@link SubmissionClassInfo} for a given submission class name.
      * If no mapping exists in {@link #submissionClasses}, will attempt to compute one.
@@ -92,12 +107,13 @@ public final class TransformationContext {
      * @return the {@link SubmissionClassInfo} object
      */
     public SubmissionClassInfo getSubmissionClassInfo(String submissionClassName) {
-        return submissionClasses.computeIfAbsent(submissionClassName,
+        boolean isAbsent = !submissionClasses.containsKey(submissionClassName);
+        SubmissionClassInfo submissionClassInfo = submissionClasses.computeIfAbsent(submissionClassName,
             className -> TransformationUtils.readSubmissionClass(this, className));
-    }
-
-    public Map<SolutionMergingClassTransformer.Config, Object> configuration() {
-        return configuration;
+        if (isAbsent && submissionClassInfo != null) {
+            submissionClassInfo.mapToSolutionClass();
+        }
+        return submissionClassInfo;
     }
 
     public Map<String, SolutionClassNode> solutionClasses() {
@@ -108,19 +124,12 @@ public final class TransformationContext {
         return submissionClasses;
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) return true;
-        if (obj == null || obj.getClass() != this.getClass()) return false;
-        var that = (TransformationContext) obj;
-        return Objects.equals(this.configuration, that.configuration) &&
-            Objects.equals(this.solutionClasses, that.solutionClasses) &&
-            Objects.equals(this.submissionClasses, that.submissionClasses);
+    public void computeClassesSimilarity() {
+        classSimilarityMapper = new SimilarityMapper<>(submissionClassNames, solutionClasses.keySet(), getSimilarity());
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(configuration, solutionClasses, submissionClasses);
+    public String getSolutionClassName(String submissionClassName) {
+        return classSimilarityMapper.getBestMatch(submissionClassName);
     }
 
     @Override
