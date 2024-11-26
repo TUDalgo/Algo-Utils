@@ -151,13 +151,14 @@ class SubmissionClassVisitor extends ClassVisitor {
      */
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-        if (defaultTransformationsOnly) {
-            return super.visitField(access, name, descriptor, signature, value);
-        }
-
         FieldHeader fieldHeader = submissionClassInfo.getComputedFieldHeader(name);
-        visitedFields.add(fieldHeader);
-        return fieldHeader.toFieldVisitor(getDelegate(), value);
+
+        if ((access & ACC_STATIC) == (fieldHeader.access() & ACC_STATIC)) {
+            visitedFields.add(fieldHeader);
+            return fieldHeader.toFieldVisitor(getDelegate(), value);
+        } else {
+            return super.visitField(access & ~ACC_FINAL, name + "$submission", fieldHeader.descriptor(), fieldHeader.signature(), value);
+        }
     }
 
     /**
@@ -166,16 +167,35 @@ class SubmissionClassVisitor extends ClassVisitor {
      */
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-        MethodHeader methodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
-        MethodVisitor methodVisitor = methodHeader.toMethodVisitor(getDelegate());
-        visitedMethods.add(methodHeader);
+        MethodHeader originalMethodHeader = new MethodHeader(submissionClassInfo.getOriginalClassHeader().name(), access, name, descriptor, signature, exceptions);
+        MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
 
-        // if method is abstract or lambda, skip transformation
-        if ((methodHeader.access() & ACC_ABSTRACT) != 0 ||
-            ((methodHeader.access() & ACC_SYNTHETIC) != 0 && methodHeader.name().startsWith("lambda$"))) {
-            return methodVisitor;
+        // if method is lambda, skip transformation
+        if ((access & ACC_SYNTHETIC) != 0 && originalMethodHeader.name().startsWith("lambda$")) {
+            return originalMethodHeader.toMethodVisitor(getDelegate());
+        } else if ((originalMethodHeader.access() & ACC_STATIC) != (computedMethodHeader.access() & ACC_STATIC)) {
+            Type returnType = TransformationUtils.getComputedType(transformationContext, Type.getReturnType(descriptor));
+            Type[] parameterTypes = Arrays.stream(Type.getArgumentTypes(descriptor))
+                .map(type -> TransformationUtils.getComputedType(transformationContext, type))
+                .toArray(Type[]::new);
+            MethodHeader methodHeader = new MethodHeader(computedMethodHeader.owner(),
+                access,
+                name + "$submission",
+                Type.getMethodDescriptor(returnType, parameterTypes),
+                signature,
+                exceptions);
+            return new SubmissionMethodVisitor(methodHeader.toMethodVisitor(getDelegate()),
+                transformationContext,
+                submissionClassInfo,
+                originalMethodHeader,
+                methodHeader);
         } else {
-            return new SubmissionMethodVisitor(methodVisitor, transformationContext, submissionClassInfo, methodHeader);
+            visitedMethods.add(computedMethodHeader);
+            return new SubmissionMethodVisitor(computedMethodHeader.toMethodVisitor(getDelegate()),
+                transformationContext,
+                submissionClassInfo,
+                originalMethodHeader,
+                submissionClassInfo.getComputedMethodHeader(originalMethodHeader.name(), originalMethodHeader.descriptor()));
         }
     }
 
