@@ -1,5 +1,6 @@
 package org.tudalgo.algoutils.transform.util;
 
+import org.opentest4j.AssertionFailedError;
 import org.tudalgo.algoutils.transform.SolutionClassNode;
 import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
 import org.tudalgo.algoutils.transform.SubmissionClassInfo;
@@ -9,6 +10,8 @@ import org.objectweb.asm.Type;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
+import java.util.StringJoiner;
 
 import static org.objectweb.asm.Opcodes.*;
 
@@ -248,6 +251,103 @@ public final class TransformationUtils {
         }
 
         return maxStack;
+    }
+
+    public static String toHumanReadableModifiers(int modifiers) {
+        Map<Integer, String> readableModifiers = Map.of(
+            ACC_PUBLIC, "public",
+            ACC_PRIVATE, "private",
+            ACC_PROTECTED, "protected",
+            ACC_STATIC, "static",
+            ACC_FINAL, "final",
+            ACC_INTERFACE, "interface",
+            ACC_ABSTRACT, "abstract",
+            ACC_SYNTHETIC, "synthetic",
+            ACC_ENUM, "enum",
+            ACC_RECORD, "record"
+        );
+        StringJoiner joiner = new StringJoiner(" ");
+        for (int i = 1; i <= ACC_RECORD; i = i << 1) {
+            if ((modifiers & i) != 0 && readableModifiers.containsKey(i)) {
+                joiner.add(readableModifiers.get(i));
+            }
+        }
+        return joiner.toString();
+    }
+
+    public static String toHumanReadableType(Type type) {
+        return switch (type.getSort()) {
+            case Type.VOID -> "void";
+            case Type.BOOLEAN -> "boolean";
+            case Type.BYTE -> "byte";
+            case Type.SHORT -> "short";
+            case Type.CHAR -> "char";
+            case Type.INT -> "int";
+            case Type.FLOAT -> "float";
+            case Type.LONG -> "long";
+            case Type.DOUBLE -> "double";
+            case Type.ARRAY -> toHumanReadableType(type.getElementType()) + "[]".repeat(type.getDimensions());
+            case Type.OBJECT -> type.getInternalName().replace('/', '.');
+            default -> throw new IllegalStateException("Unexpected type: " + type);
+        };
+    }
+
+    public static String getComputedName(TransformationContext transformationContext, String className) {
+        if (transformationContext.isSubmissionClass(className)) {
+            Type type = className.startsWith("[") ? Type.getType(className) : Type.getObjectType(className);
+            if (type.getSort() == Type.OBJECT) {
+                return transformationContext.getSubmissionClassInfo(className).getComputedClassName();
+            } else {  // else must be array
+                return "%sL%s;".formatted("[".repeat(type.getDimensions()),
+                    transformationContext.getSubmissionClassInfo(type.getElementType().getInternalName()).getComputedClassName());
+            }
+        } else {
+            return className;
+        }
+    }
+
+    public static Type getComputedType(TransformationContext transformationContext, Type type) {
+        if (type.getSort() == Type.OBJECT) {
+            return Type.getObjectType(getComputedName(transformationContext, type.getInternalName()));
+        } else if (type.getSort() == Type.ARRAY) {
+            return Type.getType(getComputedName(transformationContext, type.getDescriptor()));
+        } else {
+            return type;
+        }
+    }
+
+    public static <T extends Header> void buildExceptionForHeaderMismatch(MethodVisitor mv, String message, T expected, T actual) {
+        mv.visitTypeInsn(NEW, Type.getInternalName(AssertionFailedError.class));
+        mv.visitInsn(DUP);
+        mv.visitLdcInsn(message);
+        if (expected instanceof ClassHeader) {
+            TransformationUtils.buildClassHeader(mv, (ClassHeader) expected);
+            TransformationUtils.buildClassHeader(mv, (ClassHeader) actual);
+        } else if (expected instanceof FieldHeader) {
+            TransformationUtils.buildFieldHeader(mv, (FieldHeader) expected);
+            TransformationUtils.buildFieldHeader(mv, (FieldHeader) actual);
+        } else if (expected instanceof MethodHeader) {
+            TransformationUtils.buildMethodHeader(mv, (MethodHeader) expected);
+            TransformationUtils.buildMethodHeader(mv, (MethodHeader) actual);
+        } else {
+            throw new IllegalArgumentException("Unsupported header type: " + expected.getClass());
+        }
+        mv.visitMethodInsn(INVOKESPECIAL,
+            Type.getInternalName(AssertionFailedError.class),
+            "<init>",
+            Type.getMethodDescriptor(Type.VOID_TYPE, Constants.STRING_TYPE, Constants.OBJECT_TYPE, Constants.OBJECT_TYPE),
+            false);
+        mv.visitInsn(ATHROW);
+    }
+
+    public static void getDefaultValue(MethodVisitor mv, Type type) {
+        switch (type.getSort()) {
+            case Type.BOOLEAN, Type.BYTE, Type.SHORT, Type.CHAR, Type.INT -> mv.visitInsn(ICONST_0);
+            case Type.FLOAT -> mv.visitInsn(FCONST_0);
+            case Type.LONG -> mv.visitInsn(LCONST_0);
+            case Type.DOUBLE -> mv.visitInsn(DCONST_0);
+            case Type.OBJECT, Type.ARRAY -> mv.visitInsn(ACONST_NULL);
+        }
     }
 
     /**

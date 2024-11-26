@@ -5,7 +5,7 @@ import org.objectweb.asm.Type;
 /**
  * Common interface of all header records.
  */
-interface Header {
+public interface Header {
 
     /**
      * Returns the type for this header.

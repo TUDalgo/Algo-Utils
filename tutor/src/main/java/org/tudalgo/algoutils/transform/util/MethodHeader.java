@@ -8,6 +8,7 @@ import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static org.objectweb.asm.Opcodes.*;
 
@@ -111,5 +112,24 @@ public record MethodHeader(String owner, int access, String name, String descrip
     @Override
     public int hashCode() {
         return Objects.hash(name, descriptor);
+    }
+
+    @Override
+    public String toString() {
+        String signatureString = "(signature: '%s')".formatted(signature);
+        String exceptionsString = "throws %s".formatted(Arrays.stream(exceptions == null ? new String[0] : exceptions)
+            .map(s -> s.replace('/', '.'))
+            .collect(Collectors.joining(", ")));
+        return "%s %s %s#%s(%s) %s %s".formatted(
+            TransformationUtils.toHumanReadableModifiers(access),
+            TransformationUtils.toHumanReadableType(Type.getReturnType(descriptor)),
+            TransformationUtils.toHumanReadableType(Type.getObjectType(owner)),
+            name,
+            Arrays.stream(Type.getArgumentTypes(descriptor))
+                .map(TransformationUtils::toHumanReadableType)
+                .collect(Collectors.joining(", ")),
+            exceptions != null && exceptions.length > 0 ? exceptionsString : "",
+            signature != null ? signatureString : ""
+        ).trim();
     }
 }

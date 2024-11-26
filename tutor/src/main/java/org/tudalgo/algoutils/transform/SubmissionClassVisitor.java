@@ -201,9 +201,9 @@ class SubmissionClassVisitor extends ClassVisitor {
                 .forEach(methodNode -> methodNode.accept(getDelegate()));
         }
 
-        classMetadata();
-        fieldMetadata();
-        methodMetadata();
+        injectClassMetadata();
+        injectFieldMetadata();
+        injectMethodMetadata();
 
         super.visitEnd();
     }
@@ -212,7 +212,7 @@ class SubmissionClassVisitor extends ClassVisitor {
      * Injects a static method {@code getOriginalClassHeader()} into the submission class.
      * This injected method returns the original class header of the class pre-transformation.
      */
-    private void classMetadata() {
+    private void injectClassMetadata() {
         ClassHeader classHeader = submissionClassInfo.getOriginalClassHeader();
         Label startLabel = new Label();
         Label endLabel = new Label();
@@ -235,7 +235,7 @@ class SubmissionClassVisitor extends ClassVisitor {
      * Injects a static method {@code getOriginalFieldHeaders()} into the submission class.
      * This injected method returns the set of original field headers of the class pre-transformation.
      */
-    private void fieldMetadata() {
+    private void injectFieldMetadata() {
         Set<FieldHeader> fieldHeaders = submissionClassInfo.getOriginalFieldHeaders()
             .stream()
             .filter(fieldHeader -> (fieldHeader.access() & ACC_SYNTHETIC) == 0)
@@ -280,7 +280,7 @@ class SubmissionClassVisitor extends ClassVisitor {
      * Injects a static method {@code getOriginalMethodHeaders()} into the submission class.
      * This injected method returns the set of original method headers of the class pre-transformation.
      */
-    private void methodMetadata() {
+    private void injectMethodMetadata() {
         Set<MethodHeader> methodHeaders = submissionClassInfo.getOriginalMethodHeaders()
             .stream()
             .filter(methodHeader -> (methodHeader.access() & ACC_SYNTHETIC) == 0)

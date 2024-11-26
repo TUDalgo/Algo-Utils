@@ -72,7 +72,7 @@ public class SolutionClassNode extends ClassNode {
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
         FieldHeader fieldHeader = new FieldHeader(className, access, name, descriptor, signature);
-        FieldNode fieldNode = (FieldNode) super.visitField(access, name, descriptor, signature, value);
+        FieldNode fieldNode = (FieldNode) super.visitField(access & ~ACC_FINAL, name, descriptor, signature, value);
         fields.put(fieldHeader, fieldNode);
         return fieldNode;
     }

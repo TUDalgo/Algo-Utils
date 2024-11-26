@@ -2,10 +2,13 @@ package org.tudalgo.algoutils.transform.util;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * A record holding information on the header of a field as declared in java bytecode.
@@ -61,7 +64,7 @@ public record FieldHeader(String owner, int access, String name, String descript
      * @return the resulting {@link FieldVisitor}
      */
     public FieldVisitor toFieldVisitor(ClassVisitor delegate, Object value) {
-        return delegate.visitField(access, name, descriptor, signature, value);
+        return delegate.visitField(access & ~Opcodes.ACC_FINAL, name, descriptor, signature, value);
     }
 
     /**
@@ -79,5 +82,17 @@ public record FieldHeader(String owner, int access, String name, String descript
     @Override
     public int hashCode() {
         return Objects.hash(name);
+    }
+
+    @Override
+    public String toString() {
+        String signatureString = "(signature: '%s')".formatted(signature);
+        return "%s %s %s#%s %s".formatted(
+            TransformationUtils.toHumanReadableModifiers(access),
+            TransformationUtils.toHumanReadableType(Type.getType(descriptor)),
+            TransformationUtils.toHumanReadableType(Type.getObjectType(owner)),
+            name,
+            signature != null ? signatureString : ""
+        ).trim();
     }
 }

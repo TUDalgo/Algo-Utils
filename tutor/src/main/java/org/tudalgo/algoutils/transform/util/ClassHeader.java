@@ -1,9 +1,12 @@
 package org.tudalgo.algoutils.transform.util;
 
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
+import java.util.Arrays;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * A record holding information on the header of a class as declared in Java bytecode.
@@ -71,5 +74,22 @@ public record ClassHeader(int access, String name, String signature, String supe
     @Override
     public int hashCode() {
         return Objects.hashCode(name);
+    }
+
+    @Override
+    public String toString() {
+        String signatureString = "(signature: '%s')".formatted(signature);
+        String superClassString = "extends %s".formatted(superName != null ? superName.replace('/', '.') : "");
+        String interfacesString = "implements %s".formatted(Arrays.stream(interfaces == null ? new String[0] : interfaces)
+            .map(s -> s.replace('/', '.'))
+            .collect(Collectors.joining(", ")));
+        return "%s %s %s %s %s".formatted(
+            TransformationUtils.toHumanReadableModifiers(access) +
+                (((Opcodes.ACC_INTERFACE | Opcodes.ACC_ENUM | Opcodes.ACC_RECORD) & access) == 0 ? " class" : ""),
+            TransformationUtils.toHumanReadableType(Type.getObjectType(name)),
+            superName != null ? superClassString : "",
+            interfaces != null && interfaces.length > 0 ? interfacesString : "",
+            signature != null ? signatureString : ""
+        ).trim();
     }
 }

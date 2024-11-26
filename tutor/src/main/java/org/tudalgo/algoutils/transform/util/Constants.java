@@ -99,7 +99,7 @@ public final class Constants {
             SUBMISSION_EXECUTION_HANDLER_INTERNAL_ADD_INVOCATION = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredMethod("addInvocation", MethodHeader.class, Invocation.class));
             SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBSTITUTION = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredMethod("useSubstitution", MethodHeader.class));
             SUBMISSION_EXECUTION_HANDLER_INTERNAL_GET_SUBSTITUTION = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredMethod("getSubstitution", MethodHeader.class));
-            SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBMISSION_IMPL = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredMethod("useSubstitution", MethodHeader.class));
+            SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBMISSION_IMPL = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredMethod("useSubmissionImpl", MethodHeader.class));
 
             INVOCATION_CONSTRUCTOR = new MethodHeader(Invocation.class.getDeclaredConstructor(StackTraceElement[].class));
             INVOCATION_CONSTRUCTOR_WITH_INSTANCE = new MethodHeader(Invocation.class.getDeclaredConstructor(Object.class, StackTraceElement[].class));
