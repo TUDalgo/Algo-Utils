@@ -60,6 +60,11 @@ public record MethodHeader(String owner, int access, String name, String descrip
     }
 
     @Override
+    public String[] getRecordComponents() {
+        return new String[] {"owner", "access", "name", "descriptor", "signature", "exceptions"};
+    }
+
+    @Override
     public Object getValue(String name) {
         return switch (name) {
             case "owner" -> this.owner;

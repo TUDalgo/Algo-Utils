@@ -22,6 +22,13 @@ public interface Header {
     Type[] getConstructorParameterTypes();
 
     /**
+     * Returns the values that can be passed to {@link #getValue(String)}.
+     *
+     * @return the values
+     */
+    String[] getRecordComponents();
+
+    /**
      * Returns the stored value for the given record component's name.
      *
      * @param name the name of the record component

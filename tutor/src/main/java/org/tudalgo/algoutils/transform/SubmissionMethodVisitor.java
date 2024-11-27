@@ -120,7 +120,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
             super.visitLabel(submissionExecutionHandlerVarLabel);
 
             // replicate method header in bytecode and store in locals array
-            buildMethodHeader(getDelegate(), computedMethodHeader);
+            buildHeader(getDelegate(), computedMethodHeader);
             super.visitVarInsn(ASTORE, methodHeaderIndex);
             super.visitLabel(methodHeaderVarLabel);
 

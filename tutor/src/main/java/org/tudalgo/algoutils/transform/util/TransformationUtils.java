@@ -106,48 +106,6 @@ public final class TransformationUtils {
     }
 
     /**
-     * Builds a class header with bytecode instructions using the given method visitor and information
-     * stored in the given class header.
-     * Upon return, a reference to the newly created {@link ClassHeader} object is located at
-     * the top of the method visitor's stack.
-     *
-     * @param mv          the method visitor to use
-     * @param classHeader the class header to replicate in bytecode
-     * @return the maximum stack size used during the operation
-     */
-    public static int buildClassHeader(MethodVisitor mv, ClassHeader classHeader) {
-        return buildHeader(mv, classHeader, "access", "name", "signature", "superName", "interfaces");
-    }
-
-    /**
-     * Builds a field header with bytecode instructions using the given method visitor and information
-     * stored in the given field header.
-     * Upon return, a reference to the newly created {@link FieldHeader} object is located at
-     * the top of the method visitor's stack.
-     *
-     * @param mv          the method visitor to use
-     * @param fieldHeader the field header to replicate in bytecode
-     * @return the maximum stack size used during the operation
-     */
-    public static int buildFieldHeader(MethodVisitor mv, FieldHeader fieldHeader) {
-        return buildHeader(mv, fieldHeader, "owner", "access", "name", "descriptor", "signature");
-    }
-
-    /**
-     * Builds a method header with bytecode instructions using the given method visitor and information
-     * stored in the given method header.
-     * Upon return, a reference to the newly created {@link MethodHeader} object is located at
-     * the top of the method visitor's stack.
-     *
-     * @param mv           the method visitor to use
-     * @param methodHeader the method header to replicate in bytecode
-     * @return the maximum stack size used during the operation
-     */
-    public static int buildMethodHeader(MethodVisitor mv, MethodHeader methodHeader) {
-        return buildHeader(mv, methodHeader, "owner", "access", "name", "descriptor", "signature", "exceptions");
-    }
-
-    /**
      * Attempts to read and process a solution class from {@code resources/classes/}.
      *
      * @param transformationContext a {@link TransformationContext} object
@@ -316,22 +274,12 @@ public final class TransformationUtils {
         }
     }
 
-    public static <T extends Header> void buildExceptionForHeaderMismatch(MethodVisitor mv, String message, T expected, T actual) {
+    public static void buildExceptionForHeaderMismatch(MethodVisitor mv, String message, Header expected, Header actual) {
         mv.visitTypeInsn(NEW, Type.getInternalName(AssertionFailedError.class));
         mv.visitInsn(DUP);
         mv.visitLdcInsn(message);
-        if (expected instanceof ClassHeader) {
-            TransformationUtils.buildClassHeader(mv, (ClassHeader) expected);
-            TransformationUtils.buildClassHeader(mv, (ClassHeader) actual);
-        } else if (expected instanceof FieldHeader) {
-            TransformationUtils.buildFieldHeader(mv, (FieldHeader) expected);
-            TransformationUtils.buildFieldHeader(mv, (FieldHeader) actual);
-        } else if (expected instanceof MethodHeader) {
-            TransformationUtils.buildMethodHeader(mv, (MethodHeader) expected);
-            TransformationUtils.buildMethodHeader(mv, (MethodHeader) actual);
-        } else {
-            throw new IllegalArgumentException("Unsupported header type: " + expected.getClass());
-        }
+        buildHeader(mv, expected);
+        buildHeader(mv, actual);
         mv.visitMethodInsn(INVOKESPECIAL,
             Type.getInternalName(AssertionFailedError.class),
             "<init>",
@@ -354,27 +302,22 @@ public final class TransformationUtils {
      * Replicates the given header with bytecode instructions using the supplied method visitor.
      * Upon return, a reference to the newly created header object is located at
      * the top of the method visitor's stack.
-     * <br>
-     * Note: The number of keys must equal the length of the array returned by
-     * {@link Header#getConstructorParameterTypes()}.
-     * Furthermore, the result of calling {@link Header#getValue(String)} with {@code keys[i]} must
-     * be assignable to the constructor parameter type at index {@code i}.
      *
      * @param mv     the method visitor to use
      * @param header the header object to replicate in bytecode
-     * @param keys   the keys to get values for
      * @return the maximum stack size used during the operation
      */
-    private static int buildHeader(MethodVisitor mv, Header header, String... keys) {
+    public static int buildHeader(MethodVisitor mv, Header header) {
         Type headerType = header.getType();
         Type[] constructorParameterTypes = header.getConstructorParameterTypes();
+        String[] components = header.getRecordComponents();
         int maxStack, stackSize;
 
         mv.visitTypeInsn(NEW, header.getType().getInternalName());
         mv.visitInsn(DUP);
         maxStack = stackSize = 2;
-        for (int i = 0; i < keys.length; i++) {
-            Object value = header.getValue(keys[i]);
+        for (int i = 0; i < components.length; i++) {
+            Object value = header.getValue(components[i]);
             if (constructorParameterTypes[i].equals(Constants.STRING_ARRAY_TYPE)) {
                 int stackUsed = buildArray(mv, Constants.STRING_TYPE, (Object[]) value);
                 maxStack = Math.max(maxStack, stackSize++ + stackUsed);

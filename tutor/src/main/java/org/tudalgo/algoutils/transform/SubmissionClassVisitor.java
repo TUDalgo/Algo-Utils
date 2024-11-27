@@ -239,7 +239,7 @@ class SubmissionClassVisitor extends ClassVisitor {
         MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_CLASS_HEADER.toMethodVisitor(getDelegate());
 
         mv.visitLabel(startLabel);
-        int maxStack = buildClassHeader(mv, classHeader);
+        int maxStack = buildHeader(mv, classHeader);
         mv.visitInsn(ARETURN);
         mv.visitLabel(endLabel);
         mv.visitLocalVariable("this",
@@ -275,7 +275,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             maxStack = Math.max(maxStack, ++stackSize);
             mv.visitIntInsn(SIPUSH, i++);
             maxStack = Math.max(maxStack, ++stackSize);
-            int stackSizeUsed = buildFieldHeader(mv, fieldHeader);
+            int stackSizeUsed = buildHeader(mv, fieldHeader);
             maxStack = Math.max(maxStack, stackSize++ + stackSizeUsed);
             mv.visitInsn(AASTORE);
             stackSize -= 3;
@@ -320,7 +320,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             maxStack = Math.max(maxStack, ++stackSize);
             mv.visitIntInsn(SIPUSH, i++);
             maxStack = Math.max(maxStack, ++stackSize);
-            int stackSizeUsed = buildMethodHeader(mv, methodHeader);
+            int stackSizeUsed = buildHeader(mv, methodHeader);
             maxStack = Math.max(maxStack, stackSize++ + stackSizeUsed);
             mv.visitInsn(AASTORE);
             stackSize -= 3;

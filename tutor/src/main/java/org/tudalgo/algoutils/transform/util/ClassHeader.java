@@ -33,6 +33,11 @@ public record ClassHeader(int access, String name, String signature, String supe
     }
 
     @Override
+    public String[] getRecordComponents() {
+        return new String[] {"access", "name", "signature", "superName", "interfaces"};
+    }
+
+    @Override
     public Object getValue(String name) {
         return switch (name) {
             case "access" -> this.access;
