@@ -354,14 +354,14 @@ class SubmissionMethodVisitor extends MethodVisitor {
                 super.visitFieldInsn(opcode,
                     "[".repeat(ownerType.getDimensions()) + actualOwner.getDescriptor(),
                     name,
-                    TransformationUtils.getComputedType(transformationContext, Type.getType(descriptor)).getDescriptor());
+                    transformationContext.getComputedType(Type.getType(descriptor)).getDescriptor());
             } else {
                 FieldHeader computedFieldHeader = transformationContext.getSubmissionClassInfo(owner).getComputedFieldHeader(name);
                 boolean isStaticOpcode = opcode == GETSTATIC || opcode == PUTSTATIC;
                 boolean isStaticField = (computedFieldHeader.access() & ACC_STATIC) != 0;
                 if (isStaticOpcode == isStaticField) {
                     super.visitFieldInsn(opcode,
-                        TransformationUtils.getComputedName(transformationContext, computedFieldHeader.owner()),
+                        transformationContext.getComputedName(computedFieldHeader.owner()),
                         computedFieldHeader.name(),
                         computedFieldHeader.descriptor());
                 } else { // if incompatible
@@ -391,9 +391,9 @@ class SubmissionMethodVisitor extends MethodVisitor {
             if ((opcode == INVOKESTATIC) == ((methodHeader.access() & ACC_STATIC) != 0)) {
                 super.visitMethodInsn(opcode, methodHeader.owner(), methodHeader.name(), methodHeader.descriptor(), isInterface);
             } else {
-                Type returnType = TransformationUtils.getComputedType(transformationContext, Type.getReturnType(descriptor));
+                Type returnType = transformationContext.getComputedType(Type.getReturnType(descriptor));
                 Type[] parameterTypes = Arrays.stream(Type.getArgumentTypes(descriptor))
-                    .map(type -> TransformationUtils.getComputedType(transformationContext, type))
+                    .map(transformationContext::getComputedType)
                     .toArray(Type[]::new);
                 super.visitMethodInsn(opcode,
                     methodHeader.owner(),
@@ -546,7 +546,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
             Object[] computedLocals = Arrays.stream(local)
                 .map(o -> {
                     if (o instanceof String s && transformationContext.isSubmissionClass(s)) {
-                        return TransformationUtils.getComputedName(transformationContext, s);
+                        return transformationContext.getComputedName(s);
                     } else {
                         return o;
                     }
@@ -555,7 +555,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
             Object[] computedStack = Arrays.stream(stack)
                 .map(o -> {
                     if (o instanceof String s && transformationContext.isSubmissionClass(s)) {
-                        return TransformationUtils.getComputedName(transformationContext, s);
+                        return transformationContext.getComputedName(s);
                     } else {
                         return o;
                     }

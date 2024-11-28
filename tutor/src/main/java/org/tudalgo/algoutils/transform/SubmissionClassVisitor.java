@@ -174,9 +174,9 @@ class SubmissionClassVisitor extends ClassVisitor {
         if ((access & ACC_SYNTHETIC) != 0 && originalMethodHeader.name().startsWith("lambda$")) {
             return originalMethodHeader.toMethodVisitor(getDelegate());
         } else if ((originalMethodHeader.access() & ACC_STATIC) != (computedMethodHeader.access() & ACC_STATIC)) {
-            Type returnType = TransformationUtils.getComputedType(transformationContext, Type.getReturnType(descriptor));
+            Type returnType = transformationContext.getComputedType(Type.getReturnType(descriptor));
             Type[] parameterTypes = Arrays.stream(Type.getArgumentTypes(descriptor))
-                .map(type -> TransformationUtils.getComputedType(transformationContext, type))
+                .map(transformationContext::getComputedType)
                 .toArray(Type[]::new);
             MethodHeader methodHeader = new MethodHeader(computedMethodHeader.owner(),
                 access,

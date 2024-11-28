@@ -250,30 +250,6 @@ public final class TransformationUtils {
         };
     }
 
-    public static String getComputedName(TransformationContext transformationContext, String className) {
-        if (transformationContext.isSubmissionClass(className)) {
-            Type type = className.startsWith("[") ? Type.getType(className) : Type.getObjectType(className);
-            if (type.getSort() == Type.OBJECT) {
-                return transformationContext.getSubmissionClassInfo(className).getComputedClassName();
-            } else {  // else must be array
-                return "%sL%s;".formatted("[".repeat(type.getDimensions()),
-                    transformationContext.getSubmissionClassInfo(type.getElementType().getInternalName()).getComputedClassName());
-            }
-        } else {
-            return className;
-        }
-    }
-
-    public static Type getComputedType(TransformationContext transformationContext, Type type) {
-        if (type.getSort() == Type.OBJECT) {
-            return Type.getObjectType(getComputedName(transformationContext, type.getInternalName()));
-        } else if (type.getSort() == Type.ARRAY) {
-            return Type.getType(getComputedName(transformationContext, type.getDescriptor()));
-        } else {
-            return type;
-        }
-    }
-
     public static void buildExceptionForHeaderMismatch(MethodVisitor mv, String message, Header expected, Header actual) {
         mv.visitTypeInsn(NEW, Type.getInternalName(AssertionFailedError.class));
         mv.visitInsn(DUP);

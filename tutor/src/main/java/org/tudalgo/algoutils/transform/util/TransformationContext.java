@@ -120,16 +120,39 @@ public final class TransformationContext {
         return solutionClasses;
     }
 
-    public Map<String, SubmissionClassInfo> submissionClasses() {
-        return submissionClasses;
-    }
-
+    @SuppressWarnings("unchecked")
     public void computeClassesSimilarity() {
-        classSimilarityMapper = new SimilarityMapper<>(submissionClassNames, solutionClasses.keySet(), getSimilarity());
+        classSimilarityMapper = new SimilarityMapper<>(submissionClassNames,
+            (Map<String, Collection<String>>) configuration.get(SolutionMergingClassTransformer.Config.SOLUTION_CLASSES),
+            getSimilarity());
     }
 
     public String getSolutionClassName(String submissionClassName) {
         return classSimilarityMapper.getBestMatch(submissionClassName);
+    }
+
+    public String getComputedName(String className) {
+        if (isSubmissionClass(className)) {
+            Type type = className.startsWith("[") ? Type.getType(className) : Type.getObjectType(className);
+            if (type.getSort() == Type.OBJECT) {
+                return getSubmissionClassInfo(className).getComputedClassName();
+            } else {  // else must be array
+                return "%sL%s;".formatted("[".repeat(type.getDimensions()),
+                    getSubmissionClassInfo(type.getElementType().getInternalName()).getComputedClassName());
+            }
+        } else {
+            return className;
+        }
+    }
+
+    public Type getComputedType(Type type) {
+        if (type.getSort() == Type.OBJECT) {
+            return Type.getObjectType(getComputedName(type.getInternalName()));
+        } else if (type.getSort() == Type.ARRAY) {
+            return Type.getType(getComputedName(type.getDescriptor()));
+        } else {
+            return type;
+        }
     }
 
     @Override

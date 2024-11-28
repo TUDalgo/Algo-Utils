@@ -205,9 +205,9 @@ public class SubmissionClassInfo extends ClassVisitor {
                 submissionFieldHeader.access(),
                 submissionFieldHeader.name(),
                 fieldType.getSort() == Type.OBJECT ?
-                    "L" + TransformationUtils.getComputedName(transformationContext, fieldType.getInternalName()) + ";" :
+                    "L" + transformationContext.getComputedName(fieldType.getInternalName()) + ";" :
                     fieldType.getSort() == Type.ARRAY ?
-                        TransformationUtils.getComputedName(transformationContext, fieldType.getInternalName()) :
+                        transformationContext.getComputedName(fieldType.getInternalName()) :
                         submissionFieldHeader.descriptor(),
                 submissionFieldHeader.signature());
             if (fsAnnotationProcessor.fieldIdentifierIsForced(submissionFieldHeader.name())) {

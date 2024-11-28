@@ -81,7 +81,9 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
      * @param availableSolutionClasses the list of solution class names (fully qualified) to use
      */
     public SolutionMergingClassTransformer(String projectPrefix, String... availableSolutionClasses) {
-        this(new Builder(projectPrefix, availableSolutionClasses));
+        this(Arrays.stream(availableSolutionClasses).reduce(new Builder(projectPrefix),
+            Builder::addSolutionClass,
+            (builder, builder2) -> builder));
     }
 
     /**
@@ -97,8 +99,7 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
         this.transformationContext = new TransformationContext(Collections.unmodifiableMap(builder.configuration),
             solutionClasses,
             submissionClasses);
-        ((List<String>) builder.configuration.get(Config.SOLUTION_CLASSES)).stream()
-            .map(s -> s.replace('.', '/'))
+        ((Map<String, List<String>>) builder.configuration.get(Config.SOLUTION_CLASSES)).keySet()
             .forEach(className -> solutionClasses.put(className, TransformationUtils.readSolutionClass(transformationContext, className)));
     }
 
@@ -153,7 +154,7 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
      */
     public enum Config {
         PROJECT_PREFIX(null),
-        SOLUTION_CLASSES(null),
+        SOLUTION_CLASSES(new HashMap<>()),
         SIMILARITY(0.90),
         METHOD_REPLACEMENTS(new HashMap<MethodHeader, MethodHeader>());
 
@@ -175,14 +176,21 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
          * Constructs a new {@link Builder}.
          *
          * @param projectPrefix   the root package containing all submission classes, usually the sheet number
-         * @param solutionClasses the list of solution class names (fully qualified) to use
          */
-        public Builder(String projectPrefix, String... solutionClasses) {
+        public Builder(String projectPrefix) {
             for (Config config : Config.values()) {
                 configuration.put(config, config.defaultValue);
             }
             configuration.put(Config.PROJECT_PREFIX, projectPrefix);
-            configuration.put(Config.SOLUTION_CLASSES, List.of(solutionClasses));
+        }
+
+        @SuppressWarnings("unchecked")
+        public Builder addSolutionClass(String solutionClassName, String... altNames) {
+            ((Map<String, List<String>>) configuration.get(Config.SOLUTION_CLASSES)).put(
+                solutionClassName.replace('.', '/'),
+                Arrays.stream(altNames).map(s -> s.replace('.', '/')).toList()
+            );
+            return this;
         }
 
         /**
