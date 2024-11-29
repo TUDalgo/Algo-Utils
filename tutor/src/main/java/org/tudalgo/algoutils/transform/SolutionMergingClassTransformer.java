@@ -5,11 +5,11 @@ import org.sourcegrade.jagr.api.testing.extension.JagrExecutionCondition;
 import org.tudalgo.algoutils.student.annotation.ForceSignature;
 import org.tudalgo.algoutils.transform.util.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
-import org.tudalgo.algoutils.transform.util.TransformationUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.sourcegrade.jagr.api.testing.ClassTransformer;
+import org.tudalgo.algoutils.tutor.general.SubmissionInfo;
 
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
@@ -66,6 +66,7 @@ import java.util.stream.Collectors;
  * @see SubmissionExecutionHandler
  * @author Daniel Mangold
  */
+@SuppressWarnings("unused")
 public class SolutionMergingClassTransformer implements ClassTransformer {
 
     /**
@@ -100,7 +101,7 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
             solutionClasses,
             submissionClasses);
         ((Map<String, List<String>>) builder.configuration.get(Config.SOLUTION_CLASSES)).keySet()
-            .forEach(className -> solutionClasses.put(className, TransformationUtils.readSolutionClass(transformationContext, className)));
+            .forEach(className -> solutionClasses.put(className, transformationContext.readSolutionClass(className)));
     }
 
     @Override
@@ -114,7 +115,6 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void transform(ClassReader reader, ClassWriter writer) {
         if (!new JagrExecutionCondition().evaluateExecutionCondition(null).isDisabled()) {  // if Jagr is present
             try {
@@ -124,14 +124,11 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
                 transformationContext.setSubmissionClassLoader(submissionClassLoader);
 
                 if (!readSubmissionClasses) {
-                    Map<String, ?> submissionInfo = new ObjectMapper()
-                        .readValue(submissionClassLoader.getResourceAsStream("submission-info.json"), Map.class);
-                    Set<String> submissionClassNames = ((List<Map<String, ?>>) submissionInfo.get("sourceSets")).stream()
-                        .filter(sourceSet -> sourceSet.get("name").equals("main"))
-                        .findAny()
-                        .map(sourceSet -> ((Map<String, List<String>>) sourceSet.get("files")).get("java"))
-                        .orElseThrow()
+                    Set<String> submissionClassNames = new ObjectMapper()
+                        .readValue(submissionClassLoader.getResourceAsStream("submission-info.json"), SubmissionInfo.class)
+                        .sourceSets()
                         .stream()
+                        .flatMap(sourceSet -> sourceSet.files().get("java").stream())
                         .map(submissionClassName -> submissionClassName.replaceAll("\\.java$", ""))
                         .collect(Collectors.toSet());
                     transformationContext.setSubmissionClassNames(submissionClassNames);

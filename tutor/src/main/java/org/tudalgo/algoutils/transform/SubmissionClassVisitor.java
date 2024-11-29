@@ -2,13 +2,10 @@ package org.tudalgo.algoutils.transform;
 
 import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.*;
-import org.objectweb.asm.tree.FieldNode;
-import org.objectweb.asm.tree.MethodNode;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.tudalgo.algoutils.transform.util.TransformationUtils.*;
 import static org.objectweb.asm.Opcodes.*;
 
 /**
@@ -103,36 +100,22 @@ import static org.objectweb.asm.Opcodes.*;
  */
 class SubmissionClassVisitor extends ClassVisitor {
 
-    private final boolean defaultTransformationsOnly;
     private final TransformationContext transformationContext;
-    private final String className;
     private final SubmissionClassInfo submissionClassInfo;
+    private final ClassHeader originalClassHeader;
+    private final ClassHeader computedClassHeader;
 
     private final Set<FieldHeader> visitedFields = new HashSet<>();
-    private final Map<FieldHeader, FieldNode> solutionFieldNodes;
-
     private final Set<MethodHeader> visitedMethods = new HashSet<>();
-    private final Map<MethodHeader, MethodNode> solutionMethodNodes;
 
     SubmissionClassVisitor(ClassVisitor classVisitor,
                            TransformationContext transformationContext,
                            String submissionClassName) {
         super(ASM9, classVisitor);
         this.transformationContext = transformationContext;
-        this.className = transformationContext.getSubmissionClassInfo(submissionClassName).getComputedClassName();
         this.submissionClassInfo = transformationContext.getSubmissionClassInfo(submissionClassName);
-
-        Optional<SolutionClassNode> solutionClass = submissionClassInfo.getSolutionClass();
-        if (solutionClass.isPresent()) {
-            this.defaultTransformationsOnly = false;
-            this.solutionFieldNodes = solutionClass.get().getFields();
-            this.solutionMethodNodes = solutionClass.get().getMethods();
-        } else {
-            System.err.printf("No corresponding solution class found for %s. Only applying default transformations.%n", submissionClassName);
-            this.defaultTransformationsOnly = true;
-            this.solutionFieldNodes = Collections.emptyMap();
-            this.solutionMethodNodes = Collections.emptyMap();
-        }
+        this.originalClassHeader = submissionClassInfo.getOriginalClassHeader();
+        this.computedClassHeader = submissionClassInfo.getComputedClassHeader();
     }
 
     /**
@@ -142,7 +125,7 @@ class SubmissionClassVisitor extends ClassVisitor {
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
         submissionClassInfo.getSolutionClass()
             .map(SolutionClassNode::getClassHeader)
-            .orElse(submissionClassInfo.getOriginalClassHeader())
+            .orElse(originalClassHeader)
             .visitClass(getDelegate(), version);
     }
 
@@ -153,11 +136,15 @@ class SubmissionClassVisitor extends ClassVisitor {
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
         FieldHeader fieldHeader = submissionClassInfo.getComputedFieldHeader(name);
 
-        if ((access & ACC_STATIC) == (fieldHeader.access() & ACC_STATIC)) {
+        if (TransformationUtils.contextIsCompatible(access, fieldHeader.access())) {
             visitedFields.add(fieldHeader);
             return fieldHeader.toFieldVisitor(getDelegate(), value);
         } else {
-            return super.visitField(access & ~ACC_FINAL, name + "$submission", fieldHeader.descriptor(), fieldHeader.signature(), value);
+            return super.visitField(TransformationUtils.transformAccess(access),
+                name + "$submission",
+                fieldHeader.descriptor(),
+                fieldHeader.signature(),
+                value);
         }
     }
 
@@ -167,35 +154,33 @@ class SubmissionClassVisitor extends ClassVisitor {
      */
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-        MethodHeader originalMethodHeader = new MethodHeader(submissionClassInfo.getOriginalClassHeader().name(), access, name, descriptor, signature, exceptions);
-        MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
-
         // if method is lambda, skip transformation
-        if ((access & ACC_SYNTHETIC) != 0 && originalMethodHeader.name().startsWith("lambda$")) {
-            return originalMethodHeader.toMethodVisitor(getDelegate());
-        } else if ((originalMethodHeader.access() & ACC_STATIC) != (computedMethodHeader.access() & ACC_STATIC)) {
-            Type returnType = transformationContext.getComputedType(Type.getReturnType(descriptor));
-            Type[] parameterTypes = Arrays.stream(Type.getArgumentTypes(descriptor))
-                .map(transformationContext::getComputedType)
-                .toArray(Type[]::new);
-            MethodHeader methodHeader = new MethodHeader(computedMethodHeader.owner(),
-                access,
-                name + "$submission",
-                Type.getMethodDescriptor(returnType, parameterTypes),
-                signature,
-                exceptions);
-            return new SubmissionMethodVisitor(methodHeader.toMethodVisitor(getDelegate()),
-                transformationContext,
-                submissionClassInfo,
-                originalMethodHeader,
-                methodHeader);
+        if (TransformationUtils.isLambdaMethod(access, name)) {
+            return super.visitMethod(access, name, descriptor, signature, exceptions);
         } else {
-            visitedMethods.add(computedMethodHeader);
-            return new SubmissionMethodVisitor(computedMethodHeader.toMethodVisitor(getDelegate()),
-                transformationContext,
-                submissionClassInfo,
-                originalMethodHeader,
-                submissionClassInfo.getComputedMethodHeader(originalMethodHeader.name(), originalMethodHeader.descriptor()));
+            MethodHeader originalMethodHeader = new MethodHeader(originalClassHeader.name(), access, name, descriptor, signature, exceptions);
+            MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
+
+            if (!TransformationUtils.contextIsCompatible(access, computedMethodHeader.access())) {
+                MethodHeader methodHeader = new MethodHeader(computedMethodHeader.owner(),
+                    access,
+                    name + "$submission",
+                    transformationContext.toComputedType(descriptor).getDescriptor(),
+                    signature,
+                    exceptions);
+                return new SubmissionMethodVisitor(methodHeader.toMethodVisitor(getDelegate()),
+                    transformationContext,
+                    submissionClassInfo,
+                    originalMethodHeader,
+                    methodHeader);
+            } else {
+                visitedMethods.add(computedMethodHeader);
+                return new SubmissionMethodVisitor(computedMethodHeader.toMethodVisitor(getDelegate()),
+                    transformationContext,
+                    submissionClassInfo,
+                    originalMethodHeader,
+                    computedMethodHeader);
+            }
         }
     }
 
@@ -206,15 +191,20 @@ class SubmissionClassVisitor extends ClassVisitor {
      */
     @Override
     public void visitEnd() {
-        if (!defaultTransformationsOnly) {
+        Optional<SolutionClassNode> solutionClass = submissionClassInfo.getSolutionClass();
+        if (solutionClass.isPresent()) {
             // add missing fields
-            solutionFieldNodes.entrySet()
+            solutionClass.get()
+                .getFields()
+                .entrySet()
                 .stream()
                 .filter(entry -> !visitedFields.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
                 .forEach(fieldNode -> fieldNode.accept(getDelegate()));
             // add missing methods (including lambdas)
-            solutionMethodNodes.entrySet()
+            solutionClass.get()
+                .getMethods()
+                .entrySet()
                 .stream()
                 .filter(entry -> !visitedMethods.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
@@ -233,17 +223,16 @@ class SubmissionClassVisitor extends ClassVisitor {
      * This injected method returns the original class header of the class pre-transformation.
      */
     private void injectClassMetadata() {
-        ClassHeader classHeader = submissionClassInfo.getOriginalClassHeader();
         Label startLabel = new Label();
         Label endLabel = new Label();
         MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_CLASS_HEADER.toMethodVisitor(getDelegate());
 
         mv.visitLabel(startLabel);
-        int maxStack = buildHeader(mv, classHeader);
+        int maxStack = originalClassHeader.buildHeader(mv);
         mv.visitInsn(ARETURN);
         mv.visitLabel(endLabel);
         mv.visitLocalVariable("this",
-            Type.getObjectType(className).getDescriptor(),
+            Type.getObjectType(computedClassHeader.name()).getDescriptor(),
             null,
             startLabel,
             endLabel,
@@ -275,7 +264,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             maxStack = Math.max(maxStack, ++stackSize);
             mv.visitIntInsn(SIPUSH, i++);
             maxStack = Math.max(maxStack, ++stackSize);
-            int stackSizeUsed = buildHeader(mv, fieldHeader);
+            int stackSizeUsed = fieldHeader.buildHeader(mv);
             maxStack = Math.max(maxStack, stackSize++ + stackSizeUsed);
             mv.visitInsn(AASTORE);
             stackSize -= 3;
@@ -288,7 +277,7 @@ class SubmissionClassVisitor extends ClassVisitor {
         mv.visitInsn(ARETURN);
         mv.visitLabel(endLabel);
         mv.visitLocalVariable("this",
-            Type.getObjectType(className).getDescriptor(),
+            Type.getObjectType(computedClassHeader.name()).getDescriptor(),
             null,
             startLabel,
             endLabel,
@@ -304,7 +293,7 @@ class SubmissionClassVisitor extends ClassVisitor {
         Set<MethodHeader> methodHeaders = submissionClassInfo.getOriginalMethodHeaders()
             .stream()
             .filter(methodHeader -> (methodHeader.access() & ACC_SYNTHETIC) == 0)
-            .collect(Collectors.toSet());;
+            .collect(Collectors.toSet());
         Label startLabel = new Label();
         Label endLabel = new Label();
         int maxStack, stackSize;
@@ -320,7 +309,7 @@ class SubmissionClassVisitor extends ClassVisitor {
             maxStack = Math.max(maxStack, ++stackSize);
             mv.visitIntInsn(SIPUSH, i++);
             maxStack = Math.max(maxStack, ++stackSize);
-            int stackSizeUsed = buildHeader(mv, methodHeader);
+            int stackSizeUsed = methodHeader.buildHeader(mv);
             maxStack = Math.max(maxStack, stackSize++ + stackSizeUsed);
             mv.visitInsn(AASTORE);
             stackSize -= 3;
@@ -333,7 +322,7 @@ class SubmissionClassVisitor extends ClassVisitor {
         mv.visitInsn(ARETURN);
         mv.visitLabel(endLabel);
         mv.visitLocalVariable("this",
-            Type.getObjectType(className).getDescriptor(),
+            Type.getObjectType(computedClassHeader.name()).getDescriptor(),
             null,
             startLabel,
             endLabel,

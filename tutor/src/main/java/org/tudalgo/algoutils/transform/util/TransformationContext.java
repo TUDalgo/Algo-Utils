@@ -1,10 +1,13 @@
 package org.tudalgo.algoutils.transform.util;
 
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
 import org.tudalgo.algoutils.transform.SolutionClassNode;
 import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
 import org.tudalgo.algoutils.transform.SubmissionClassInfo;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 
 /**
@@ -39,6 +42,8 @@ public final class TransformationContext {
         this.submissionClasses = submissionClasses;
     }
 
+    // Config and misc. stuff
+
     /**
      * Returns the project prefix.
      *
@@ -67,14 +72,6 @@ public final class TransformationContext {
         return getMethodReplacement(methodHeader) != null;
     }
 
-    public void setSubmissionClassLoader(ClassLoader submissionClassLoader) {
-        this.submissionClassLoader = submissionClassLoader;
-    }
-
-    public ClassLoader getSubmissionClassLoader() {
-        return submissionClassLoader;
-    }
-
     /**
      * Returns the replacement method header for the given target method header.
      *
@@ -87,10 +84,43 @@ public final class TransformationContext {
             .get(methodHeader);
     }
 
+    /**
+     * Sets the class loader for submission classes.
+     *
+     * @param submissionClassLoader the class loader
+     */
+    public void setSubmissionClassLoader(ClassLoader submissionClassLoader) {
+        this.submissionClassLoader = submissionClassLoader;
+    }
+
+    /**
+     * Sets the available submission classes to the specified value.
+     *
+     * @param submissionClassNames the available submission classes
+     */
     public void setSubmissionClassNames(Set<String> submissionClassNames) {
         this.submissionClassNames = submissionClassNames;
     }
 
+    /**
+     * Computes similarities for mapping submission classes to solution classes.
+     */
+    @SuppressWarnings("unchecked")
+    public void computeClassesSimilarity() {
+        classSimilarityMapper = new SimilarityMapper<>(submissionClassNames,
+            (Map<String, Collection<String>>) configuration.get(SolutionMergingClassTransformer.Config.SOLUTION_CLASSES),
+            getSimilarity());
+    }
+
+    // Submission classes
+
+    /**
+     * Whether the given class is a submission class.
+     * The parameter must be either the internal name of a class or an array descriptor.
+     *
+     * @param submissionClassName the class name / array class descriptor
+     * @return true, if the given class is a submission class, otherwise false
+     */
     public boolean isSubmissionClass(String submissionClassName) {
         if (submissionClassName.startsWith("[")) {
             return isSubmissionClass(Type.getType(submissionClassName).getElementType().getInternalName());
@@ -108,51 +138,133 @@ public final class TransformationContext {
      */
     public SubmissionClassInfo getSubmissionClassInfo(String submissionClassName) {
         boolean isAbsent = !submissionClasses.containsKey(submissionClassName);
-        SubmissionClassInfo submissionClassInfo = submissionClasses.computeIfAbsent(submissionClassName,
-            className -> TransformationUtils.readSubmissionClass(this, className));
+        SubmissionClassInfo submissionClassInfo = submissionClasses.computeIfAbsent(submissionClassName, this::readSubmissionClass);
         if (isAbsent && submissionClassInfo != null) {
-            submissionClassInfo.mapToSolutionClass();
+            submissionClassInfo.computeMembers();
         }
         return submissionClassInfo;
     }
 
-    public Map<String, SolutionClassNode> solutionClasses() {
-        return solutionClasses;
-    }
-
-    @SuppressWarnings("unchecked")
-    public void computeClassesSimilarity() {
-        classSimilarityMapper = new SimilarityMapper<>(submissionClassNames,
-            (Map<String, Collection<String>>) configuration.get(SolutionMergingClassTransformer.Config.SOLUTION_CLASSES),
-            getSimilarity());
-    }
-
-    public String getSolutionClassName(String submissionClassName) {
-        return classSimilarityMapper.getBestMatch(submissionClassName);
-    }
-
-    public String getComputedName(String className) {
-        if (isSubmissionClass(className)) {
-            Type type = className.startsWith("[") ? Type.getType(className) : Type.getObjectType(className);
-            if (type.getSort() == Type.OBJECT) {
-                return getSubmissionClassInfo(className).getComputedClassName();
-            } else {  // else must be array
-                return "%sL%s;".formatted("[".repeat(type.getDimensions()),
-                    getSubmissionClassInfo(type.getElementType().getInternalName()).getComputedClassName());
+    /**
+     * Attempts to read and process a submission class.
+     *
+     * @param className the name of the submission class
+     * @return the resulting {@link SubmissionClassInfo} object
+     */
+    public SubmissionClassInfo readSubmissionClass(String className) {
+        ClassReader submissionClassReader;
+        String submissionClassFilePath = className + ".class";
+        try (InputStream is = submissionClassLoader.getResourceAsStream(submissionClassFilePath)) {
+            if (is == null) {
+                return null;
             }
+            submissionClassReader = new ClassReader(is);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        ForceSignatureAnnotationProcessor fsAnnotationProcessor = new ForceSignatureAnnotationProcessor();
+        submissionClassReader.accept(fsAnnotationProcessor, 0);
+        SubmissionClassInfo submissionClassInfo = new SubmissionClassInfo(this, fsAnnotationProcessor);
+        submissionClassReader.accept(submissionClassInfo, 0);
+        return submissionClassInfo;
+    }
+
+    // Solution classes
+
+    /**
+     * Returns the solution class name for the given submission class name.
+     * If no matching solution class was found, returns the given submission class name.
+     *
+     * @param submissionClassName the submission class name
+     * @return the solution class name
+     */
+    public String getSolutionClassName(String submissionClassName) {
+        return classSimilarityMapper.getBestMatch(submissionClassName).orElse(submissionClassName);
+    }
+
+    /**
+     * Returns the solution class node for the given solution class name.
+     *
+     * @param name the solution class name
+     * @return the solution class node
+     */
+    public SolutionClassNode getSolutionClass(String name) {
+        return solutionClasses.get(name);
+    }
+
+    /**
+     * Returns the computed (i.e., mapped from submission to solution) type.
+     * The given value may be an internal class name or a descriptor.
+     * If the value is a method descriptor, this method will return a descriptor where
+     * all parameter types and the return types have been computed.
+     * If the value is an array descriptor, it will return a descriptor where
+     * the component type has been computed.
+     * If the given internal class name or descriptor are not part of the submission
+     * or no corresponding solution class exists, it will return a {@link Type} object
+     * representing the original name / descriptor.
+     *
+     * @param descriptor the class name or descriptor
+     * @return the computed type
+     */
+    public Type toComputedType(String descriptor) {
+        if (descriptor.startsWith("(")) {  // method descriptor
+            return toComputedType(Type.getMethodType(descriptor));
+        } else if (descriptor.startsWith("[") || descriptor.endsWith(";")) {  // array or reference descriptor
+            return toComputedType(Type.getType(descriptor));
+        } else if (descriptor.length() == 1 && "VZBSCIFJD".contains(descriptor)) {  // primitive type
+            return Type.getType(descriptor);
         } else {
-            return className;
+            return toComputedType(Type.getObjectType(descriptor));
         }
     }
 
-    public Type getComputedType(Type type) {
+    /**
+     * Returns the computed (i.e., mapped from submission to solution) type.
+     * If the given value represents a method descriptor, this method will return a type with
+     * a descriptor where all parameter types and the return types have been computed.
+     * If the value represents an array, it will return a type where the component type has been computed.
+     * If the given type represents a primitive type or an object type that is not a submission class
+     * (or no corresponding solution class exists), it will return the original value.
+     *
+     * @param type the type to map
+     * @return the computed type
+     */
+    public Type toComputedType(Type type) {
         if (type.getSort() == Type.OBJECT) {
-            return Type.getObjectType(getComputedName(type.getInternalName()));
+            return Type.getObjectType(getSolutionClassName(type.getInternalName()));
         } else if (type.getSort() == Type.ARRAY) {
-            return Type.getType(getComputedName(type.getDescriptor()));
+            int dimensions = type.getDimensions();
+            Type elementType = type.getElementType();
+            return Type.getType("[".repeat(dimensions) + toComputedType(elementType).getDescriptor());
+        } else if (type.getSort() == Type.METHOD) {
+            Type returnType = toComputedType(type.getReturnType());
+            Type[] parameterTypes = Arrays.stream(type.getArgumentTypes()).map(this::toComputedType).toArray(Type[]::new);
+            return Type.getMethodType(returnType, parameterTypes);
         } else {
             return type;
         }
+    }
+
+    /**
+     * Attempts to read and process a solution class from {@code resources/classes/}.
+     *
+     * @param className the name of the solution class
+     * @return the resulting {@link SolutionClassNode} object
+     */
+    public SolutionClassNode readSolutionClass(String className) {
+        ClassReader solutionClassReader;
+        String solutionClassFilePath = "/classes/%s.bin".formatted(className);
+        try (InputStream is = getClass().getResourceAsStream(solutionClassFilePath)) {
+            if (is == null) {
+                throw new IOException("No such resource: " + solutionClassFilePath);
+            }
+            solutionClassReader = new ClassReader(is);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        SolutionClassNode solutionClassNode = new SolutionClassNode(this, className);
+        solutionClassReader.accept(solutionClassNode, 0);
+        return solutionClassNode;
     }
 
     @Override
@@ -160,5 +272,4 @@ public final class TransformationContext {
         return "TransformationContext[configuration=%s, solutionClasses=%s, submissionClasses=%s]"
             .formatted(configuration, solutionClasses, submissionClasses);
     }
-
 }

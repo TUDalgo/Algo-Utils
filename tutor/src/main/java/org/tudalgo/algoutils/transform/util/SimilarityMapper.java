@@ -8,29 +8,32 @@ import java.util.stream.Stream;
 
 public class SimilarityMapper<T> {
 
+    private final double[][] similarityMatrix;
     private final Map<T, T> bestMatches = new HashMap<>();
 
     @SuppressWarnings("unchecked")
     public SimilarityMapper(Collection<String> from, Map<String, Collection<String>> to, double similarityThreshold) {
         List<String> rowMapping = new ArrayList<>(from);
         List<String> columnMapping = new ArrayList<>(to.keySet());
-        double[][] similarityMatrix = new double[from.size()][to.size()];
+        this.similarityMatrix = new double[from.size()][to.size()];
 
         for (int i = 0; i < similarityMatrix.length; i++) {
-            final int finalI = i;
+            String row = rowMapping.get(i);
             int bestMatchIndex = -1;
             double bestSimilarity = similarityThreshold;
             for (int j = 0; j < similarityMatrix[i].length; j++) {
                 similarityMatrix[i][j] = Stream.concat(Stream.of(columnMapping.get(j)), to.get(columnMapping.get(j)).stream())
-                    .mapToDouble(value -> MatchingUtils.similarity(rowMapping.get(finalI), value))
+                    .mapToDouble(value -> MatchingUtils.similarity(row, value))
                     .max()
-                    .getAsDouble();
+                    .orElseThrow();
                 if (similarityMatrix[i][j] >= bestSimilarity) {
                     bestMatchIndex = j;
                     bestSimilarity = similarityMatrix[i][j];
                 }
             }
-            bestMatches.put((T) rowMapping.get(i), bestMatchIndex >= 0 ? (T) columnMapping.get(bestMatchIndex) : null);
+            if (bestMatchIndex >= 0) {
+                bestMatches.put((T) rowMapping.get(i), (T) columnMapping.get(bestMatchIndex));
+            }
         }
     }
 
@@ -40,24 +43,26 @@ public class SimilarityMapper<T> {
                             Function<? super T, String> mappingFunction) {
         List<T> rowMapping = new ArrayList<>(from);
         List<T> columnMapping = new ArrayList<>(to);
-        double[][] similarityMatrix = new double[from.size()][to.size()];
+        this.similarityMatrix = new double[from.size()][to.size()];
 
         for (int i = 0; i < similarityMatrix.length; i++) {
+            String row = mappingFunction.apply(rowMapping.get(i));
             int bestMatchIndex = -1;
             double bestSimilarity = similarityThreshold;
             for (int j = 0; j < similarityMatrix[i].length; j++) {
-                similarityMatrix[i][j] = MatchingUtils.similarity(mappingFunction.apply(rowMapping.get(i)),
-                    mappingFunction.apply(columnMapping.get(j)));
+                similarityMatrix[i][j] = MatchingUtils.similarity(row, mappingFunction.apply(columnMapping.get(j)));
                 if (similarityMatrix[i][j] >= bestSimilarity) {
                     bestMatchIndex = j;
                     bestSimilarity = similarityMatrix[i][j];
                 }
             }
-            bestMatches.put(rowMapping.get(i), bestMatchIndex >= 0 ? columnMapping.get(bestMatchIndex) : null);
+            if (bestMatchIndex >= 0) {
+                bestMatches.put(rowMapping.get(i), columnMapping.get(bestMatchIndex));
+            }
         }
     }
 
-    public T getBestMatch(T t) {
-        return bestMatches.get(t);
+    public Optional<T> getBestMatch(T t) {
+        return Optional.ofNullable(bestMatches.get(t));
     }
 }

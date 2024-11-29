@@ -1,15 +1,9 @@
 package org.tudalgo.algoutils.transform.util;
 
 import org.opentest4j.AssertionFailedError;
-import org.tudalgo.algoutils.transform.SolutionClassNode;
-import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
-import org.tudalgo.algoutils.transform.SubmissionClassInfo;
-import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Map;
 import java.util.StringJoiner;
 
@@ -22,6 +16,69 @@ import static org.objectweb.asm.Opcodes.*;
 public final class TransformationUtils {
 
     private TransformationUtils() {}
+
+    /**
+     * Returns transformed modifiers, enabling easy access from tests.
+     * The returned modifiers have public visibility and an unset final-flag.
+     *
+     * @param access the modifiers to transform
+     * @return the transformed modifiers
+     */
+    public static int transformAccess(int access) {
+        return access & ~ACC_FINAL & ~ACC_PRIVATE & ~ACC_PROTECTED | ACC_PUBLIC;
+    }
+
+    /**
+     * Whether the given members have the same execution context.
+     * Two members are considered to have the same execution context is they are either
+     * both static or both non-static.
+     *
+     * @param access1 the modifiers of the first member
+     * @param access2 the modifiers of the second member
+     * @return true, if both members have the same execution context, otherwise false
+     */
+    public static boolean contextIsCompatible(int access1, int access2) {
+        return (access1 & ACC_STATIC) == (access2 & ACC_STATIC);
+    }
+
+    /**
+     * Whether the given opcode can be used on the given member.
+     *
+     * @param opcode the opcode to check
+     * @param access the member's modifiers
+     * @return true, if the opcode can be used on the member, otherwise false
+     */
+    public static boolean opcodeIsCompatible(int opcode, int access) {
+        return (opcode == GETSTATIC || opcode == PUTSTATIC || opcode == INVOKESTATIC) == ((access & ACC_STATIC) != 0);
+    }
+
+    /**
+     * Whether the given method is a lambda.
+     *
+     * @param access the method's modifiers
+     * @param name   the method's name
+     * @return true, if the method is a lambda, otherwise false
+     */
+    public static boolean isLambdaMethod(int access, String name) {
+        return (access & ACC_SYNTHETIC) != 0 && name.startsWith("lambda$");
+    }
+
+    /**
+     * Calculates the true index of variables in the locals array.
+     * Variables with type long or double occupy two slots in the locals array,
+     * so the "expected" or "natural" index of these variables might be shifted.
+     *
+     * @param types the parameter types
+     * @param index the "natural" index of the variable
+     * @return the true index
+     */
+    public static int getLocalsIndex(Type[] types, int index) {
+        int localsIndex = 0;
+        for (int i = 0; i < index; i++) {
+            localsIndex += (types[i].getSort() == Type.LONG || types[i].getSort() == Type.DOUBLE) ? 2 : 1;
+        }
+        return localsIndex;
+    }
 
     /**
      * Automatically box primitive types using the supplied {@link MethodVisitor}.
@@ -89,70 +146,19 @@ public final class TransformationUtils {
     }
 
     /**
-     * Calculates the true index of variables in the locals array.
-     * Variables with type long or double occupy two slots in the locals array,
-     * so the "expected" or "natural" index of these variables might be shifted.
+     * Places the given type's default value on top of the method visitor's stack.
      *
-     * @param types the parameter types
-     * @param index the "natural" index of the variable
-     * @return the true index
+     * @param mv   the method visitor to use
+     * @param type the type to get the default value for
      */
-    public static int getLocalsIndex(Type[] types, int index) {
-        int localsIndex = 0;
-        for (int i = 0; i < index; i++) {
-            localsIndex += (types[i].getSort() == Type.LONG || types[i].getSort() == Type.DOUBLE) ? 2 : 1;
+    public static void getDefaultValue(MethodVisitor mv, Type type) {
+        switch (type.getSort()) {
+            case Type.BOOLEAN, Type.BYTE, Type.SHORT, Type.CHAR, Type.INT -> mv.visitInsn(ICONST_0);
+            case Type.FLOAT -> mv.visitInsn(FCONST_0);
+            case Type.LONG -> mv.visitInsn(LCONST_0);
+            case Type.DOUBLE -> mv.visitInsn(DCONST_0);
+            case Type.OBJECT, Type.ARRAY -> mv.visitInsn(ACONST_NULL);
         }
-        return localsIndex;
-    }
-
-    /**
-     * Attempts to read and process a solution class from {@code resources/classes/}.
-     *
-     * @param transformationContext a {@link TransformationContext} object
-     * @param className             the name of the solution class
-     * @return the resulting {@link SolutionClassNode} object
-     */
-    public static SolutionClassNode readSolutionClass(TransformationContext transformationContext, String className) {
-        ClassReader solutionClassReader;
-        String solutionClassFilePath = "/classes/%s.bin".formatted(className);
-        try (InputStream is = SolutionMergingClassTransformer.class.getResourceAsStream(solutionClassFilePath)) {
-            if (is == null) {
-                throw new IOException("No such resource: " + solutionClassFilePath);
-            }
-            solutionClassReader = new ClassReader(is);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        SolutionClassNode solutionClassNode = new SolutionClassNode(transformationContext, className);
-        solutionClassReader.accept(solutionClassNode, 0);
-        return solutionClassNode;
-    }
-
-    /**
-     * Attempts to read and process a submission class.
-     *
-     * @param transformationContext a {@link TransformationContext} object
-     * @param className             the name of the submission class
-     * @return the resulting {@link SubmissionClassInfo} object
-     */
-    public static SubmissionClassInfo readSubmissionClass(TransformationContext transformationContext, String className) {
-        ClassReader submissionClassReader;
-        String submissionClassFilePath = className + ".class";
-        try (InputStream is = transformationContext.getSubmissionClassLoader().getResourceAsStream(submissionClassFilePath)) {
-            if (is == null) {
-                return null;
-            }
-            submissionClassReader = new ClassReader(is);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        SubmissionClassInfo submissionClassInfo = new SubmissionClassInfo(
-            transformationContext,
-            submissionClassReader.getClassName(),
-            new ForceSignatureAnnotationProcessor(submissionClassReader)
-        );
-        submissionClassReader.accept(submissionClassInfo, 0);
-        return submissionClassInfo;
     }
 
     /**
@@ -211,6 +217,26 @@ public final class TransformationUtils {
         return maxStack;
     }
 
+    public static void buildExceptionForHeaderMismatch(MethodVisitor mv, String message, Header expected, Header actual) {
+        mv.visitTypeInsn(NEW, Type.getInternalName(AssertionFailedError.class));
+        mv.visitInsn(DUP);
+        mv.visitLdcInsn(message);
+        expected.buildHeader(mv);
+        actual.buildHeader(mv);
+        mv.visitMethodInsn(INVOKESPECIAL,
+            Type.getInternalName(AssertionFailedError.class),
+            "<init>",
+            Type.getMethodDescriptor(Type.VOID_TYPE, Constants.STRING_TYPE, Constants.OBJECT_TYPE, Constants.OBJECT_TYPE),
+            false);
+        mv.visitInsn(ATHROW);
+    }
+
+    /**
+     * Returns a human-readable form of the given modifiers.
+     *
+     * @param modifiers the modifiers to use
+     * @return a string with human-readable modifiers
+     */
     public static String toHumanReadableModifiers(int modifiers) {
         Map<Integer, String> readableModifiers = Map.of(
             ACC_PUBLIC, "public",
@@ -233,6 +259,12 @@ public final class TransformationUtils {
         return joiner.toString();
     }
 
+    /**
+     * Returns a human-readable form of the given type.
+     *
+     * @param type the type to use
+     * @return the human-readable type
+     */
     public static String toHumanReadableType(Type type) {
         return switch (type.getSort()) {
             case Type.VOID -> "void";
@@ -248,70 +280,5 @@ public final class TransformationUtils {
             case Type.OBJECT -> type.getInternalName().replace('/', '.');
             default -> throw new IllegalStateException("Unexpected type: " + type);
         };
-    }
-
-    public static void buildExceptionForHeaderMismatch(MethodVisitor mv, String message, Header expected, Header actual) {
-        mv.visitTypeInsn(NEW, Type.getInternalName(AssertionFailedError.class));
-        mv.visitInsn(DUP);
-        mv.visitLdcInsn(message);
-        buildHeader(mv, expected);
-        buildHeader(mv, actual);
-        mv.visitMethodInsn(INVOKESPECIAL,
-            Type.getInternalName(AssertionFailedError.class),
-            "<init>",
-            Type.getMethodDescriptor(Type.VOID_TYPE, Constants.STRING_TYPE, Constants.OBJECT_TYPE, Constants.OBJECT_TYPE),
-            false);
-        mv.visitInsn(ATHROW);
-    }
-
-    public static void getDefaultValue(MethodVisitor mv, Type type) {
-        switch (type.getSort()) {
-            case Type.BOOLEAN, Type.BYTE, Type.SHORT, Type.CHAR, Type.INT -> mv.visitInsn(ICONST_0);
-            case Type.FLOAT -> mv.visitInsn(FCONST_0);
-            case Type.LONG -> mv.visitInsn(LCONST_0);
-            case Type.DOUBLE -> mv.visitInsn(DCONST_0);
-            case Type.OBJECT, Type.ARRAY -> mv.visitInsn(ACONST_NULL);
-        }
-    }
-
-    /**
-     * Replicates the given header with bytecode instructions using the supplied method visitor.
-     * Upon return, a reference to the newly created header object is located at
-     * the top of the method visitor's stack.
-     *
-     * @param mv     the method visitor to use
-     * @param header the header object to replicate in bytecode
-     * @return the maximum stack size used during the operation
-     */
-    public static int buildHeader(MethodVisitor mv, Header header) {
-        Type headerType = header.getType();
-        Type[] constructorParameterTypes = header.getConstructorParameterTypes();
-        String[] components = header.getRecordComponents();
-        int maxStack, stackSize;
-
-        mv.visitTypeInsn(NEW, header.getType().getInternalName());
-        mv.visitInsn(DUP);
-        maxStack = stackSize = 2;
-        for (int i = 0; i < components.length; i++) {
-            Object value = header.getValue(components[i]);
-            if (constructorParameterTypes[i].equals(Constants.STRING_ARRAY_TYPE)) {
-                int stackUsed = buildArray(mv, Constants.STRING_TYPE, (Object[]) value);
-                maxStack = Math.max(maxStack, stackSize++ + stackUsed);
-            } else {
-                if (value != null) {
-                    mv.visitLdcInsn(value);
-                } else {
-                    mv.visitInsn(ACONST_NULL);
-                }
-                maxStack = Math.max(maxStack, ++stackSize);
-            }
-        }
-        mv.visitMethodInsn(INVOKESPECIAL,
-            headerType.getInternalName(),
-            "<init>",
-            Type.getMethodDescriptor(Type.VOID_TYPE, constructorParameterTypes),
-            false);
-
-        return maxStack;
     }
 }

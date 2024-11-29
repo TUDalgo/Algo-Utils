@@ -1,8 +1,6 @@
 package org.tudalgo.algoutils.transform;
 
-import org.tudalgo.algoutils.transform.util.ClassHeader;
-import org.tudalgo.algoutils.transform.util.FieldHeader;
-import org.tudalgo.algoutils.transform.util.MethodHeader;
+import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
@@ -10,7 +8,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.tudalgo.algoutils.transform.util.TransformationContext;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -72,7 +69,7 @@ public class SolutionClassNode extends ClassNode {
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
         FieldHeader fieldHeader = new FieldHeader(className, access, name, descriptor, signature);
-        FieldNode fieldNode = (FieldNode) super.visitField(access & ~ACC_FINAL, name, descriptor, signature, value);
+        FieldNode fieldNode = (FieldNode) super.visitField(TransformationUtils.transformAccess(access), name, descriptor, signature, value);
         fields.put(fieldHeader, fieldNode);
         return fieldNode;
     }
@@ -102,7 +99,7 @@ public class SolutionClassNode extends ClassNode {
      * @return a new {@link MethodNode}
      */
     private MethodNode getMethodNode(int access, String name, String descriptor, String signature, String[] exceptions) {
-        return new MethodNode(ASM9, access, name, descriptor, signature, exceptions) {
+        return new MethodNode(ASM9, TransformationUtils.transformAccess(access), name, descriptor, signature, exceptions) {
             @Override
             public void visitMethodInsn(int opcodeAndSource, String owner, String name, String descriptor, boolean isInterface) {
                 MethodHeader methodHeader = new MethodHeader(owner, 0, name, descriptor, null, null);

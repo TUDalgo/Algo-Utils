@@ -20,30 +20,8 @@ public final class Constants {
     public static final Type SET_TYPE = Type.getType(Set.class);
 
     public static final Type CLASS_HEADER_TYPE = Type.getType(ClassHeader.class);
-    public static final Type[] CLASS_HEADER_CONSTRUCTOR_TYPES = new Type[] {
-        Type.INT_TYPE,
-        STRING_TYPE,
-        STRING_TYPE,
-        STRING_TYPE,
-        STRING_ARRAY_TYPE
-    };
     public static final Type FIELD_HEADER_TYPE = Type.getType(FieldHeader.class);
-    public static final Type[] FIELD_HEADER_CONSTRUCTOR_TYPES = new Type[] {
-        STRING_TYPE,
-        Type.INT_TYPE,
-        STRING_TYPE,
-        STRING_TYPE,
-        STRING_TYPE
-    };
     public static final Type METHOD_HEADER_TYPE = Type.getType(MethodHeader.class);
-    public static final Type[] METHOD_HEADER_CONSTRUCTOR_TYPES = new Type[] {
-        STRING_TYPE,
-        Type.INT_TYPE,
-        STRING_TYPE,
-        STRING_TYPE,
-        STRING_TYPE,
-        STRING_ARRAY_TYPE
-    };
 
     public static final Type FORCE_SIGNATURE_TYPE = Type.getType(ForceSignature.class);
     public static final Type INVOCATION_TYPE = Type.getType(Invocation.class);

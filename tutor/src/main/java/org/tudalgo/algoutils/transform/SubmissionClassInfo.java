@@ -7,10 +7,9 @@ import org.objectweb.asm.*;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
 /**
  * A class that holds information on a submission class.
@@ -24,16 +23,12 @@ import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 public class SubmissionClassInfo extends ClassVisitor {
 
     private final TransformationContext transformationContext;
-    private final String originalClassName;
-    private final String computedClassName;
-    private final Set<Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>>> superClassMembers = new HashSet<>();
     private final ForceSignatureAnnotationProcessor fsAnnotationProcessor;
-    private final SolutionClassNode solutionClass;
+    private final Set<Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>>> superClassMembers = new HashSet<>();
 
-    private String superClass;
-    private String[] interfaces;
-
-    private ClassHeader submissionClassHeader;
+    private ClassHeader originalClassHeader;
+    private ClassHeader computedClassHeader;
+    private SolutionClassNode solutionClass;
 
     // Mapping of fields in submission => usable fields
     private final Map<FieldHeader, FieldHeader> fields = new HashMap<>();
@@ -47,25 +42,13 @@ public class SubmissionClassInfo extends ClassVisitor {
      * Constructs a new {@link SubmissionClassInfo} instance.
      *
      * @param transformationContext a {@link TransformationContext} object
-     * @param className             the name of the submission class
      * @param fsAnnotationProcessor a {@link ForceSignatureAnnotationProcessor} for the submission class
      */
     public SubmissionClassInfo(TransformationContext transformationContext,
-                               String className,
                                ForceSignatureAnnotationProcessor fsAnnotationProcessor) {
         super(Opcodes.ASM9);
         this.transformationContext = transformationContext;
-        this.originalClassName = className;
         this.fsAnnotationProcessor = fsAnnotationProcessor;
-
-        if (fsAnnotationProcessor.classIdentifierIsForced()) {
-            this.computedClassName = fsAnnotationProcessor.forcedClassIdentifier();
-        } else {
-            // If not forced, get the closest matching solution class
-            this.computedClassName = Optional.ofNullable(transformationContext.getSolutionClassName(originalClassName))
-                .orElse(originalClassName);
-        }
-        this.solutionClass = transformationContext.solutionClasses().get(computedClassName);
     }
 
     /**
@@ -74,7 +57,7 @@ public class SubmissionClassInfo extends ClassVisitor {
      * @return the original class header
      */
     public ClassHeader getOriginalClassHeader() {
-        return submissionClassHeader;
+        return originalClassHeader;
     }
 
     /**
@@ -84,8 +67,8 @@ public class SubmissionClassInfo extends ClassVisitor {
      *
      * @return the computed class name
      */
-    public String getComputedClassName() {
-        return computedClassName;
+    public ClassHeader getComputedClassHeader() {
+        return computedClassHeader;
     }
 
     /**
@@ -169,20 +152,28 @@ public class SubmissionClassInfo extends ClassVisitor {
 
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-        submissionClassHeader = new ClassHeader(access, name, signature, superName, interfaces);
-        resolveSuperClassMembers(superClassMembers, this.superClass = superName, this.interfaces = interfaces);
+        originalClassHeader = new ClassHeader(access, name, signature, superName, interfaces);
+        String computedClassName;
+        if (fsAnnotationProcessor.classIdentifierIsForced()) {
+            computedClassName = fsAnnotationProcessor.forcedClassIdentifier();
+        } else {
+            // If not forced, get the closest matching solution class
+            computedClassName = transformationContext.getSolutionClassName(originalClassHeader.name());
+        }
+        solutionClass = transformationContext.getSolutionClass(computedClassName);
+        computedClassHeader = getSolutionClass().map(SolutionClassNode::getClassHeader).orElse(originalClassHeader);
     }
 
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-        fields.put(new FieldHeader(originalClassName, access, name, descriptor, signature), null);
+        fields.put(new FieldHeader(originalClassHeader.name(), access, name, descriptor, signature), null);
         return null;
     }
 
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-        MethodHeader submissionMethodHeader = new MethodHeader(originalClassName, access, name, descriptor, signature, exceptions);
-        if ((access & ACC_SYNTHETIC) != 0 && name.startsWith("lambda$")) {  // if method is lambda
+        MethodHeader submissionMethodHeader = new MethodHeader(originalClassHeader.name(), access, name, descriptor, signature, exceptions);
+        if (TransformationUtils.isLambdaMethod(access, name)) {
             methods.put(submissionMethodHeader, submissionMethodHeader);
             return null;
         }
@@ -191,73 +182,73 @@ public class SubmissionClassInfo extends ClassVisitor {
         return null;
     }
 
-    public void mapToSolutionClass() {
+    public void computeMembers() {
         SimilarityMapper<FieldHeader> fieldsSimilarityMapper = new SimilarityMapper<>(
             fields.keySet(),
-            solutionClass == null ? Collections.emptyList() : solutionClass.getFields().keySet(),
+            getSolutionClass().map(solutionClass -> solutionClass.getFields().keySet()).orElseGet(Collections::emptySet),
             transformationContext.getSimilarity(),
             FieldHeader::name
         );
         for (FieldHeader submissionFieldHeader : fields.keySet()) {
-            FieldHeader solutionFieldHeader;
-            Type fieldType = Type.getType(submissionFieldHeader.descriptor());
-            FieldHeader fallbackFieldHeader = new FieldHeader(computedClassName,
+            Supplier<FieldHeader> fallbackFieldHeader = () -> new FieldHeader(computedClassHeader.name(),
                 submissionFieldHeader.access(),
                 submissionFieldHeader.name(),
-                fieldType.getSort() == Type.OBJECT ?
-                    "L" + transformationContext.getComputedName(fieldType.getInternalName()) + ";" :
-                    fieldType.getSort() == Type.ARRAY ?
-                        transformationContext.getComputedName(fieldType.getInternalName()) :
-                        submissionFieldHeader.descriptor(),
+                transformationContext.toComputedType(Type.getType(submissionFieldHeader.descriptor())).getDescriptor(),
                 submissionFieldHeader.signature());
+            FieldHeader solutionFieldHeader;
             if (fsAnnotationProcessor.fieldIdentifierIsForced(submissionFieldHeader.name())) {
                 solutionFieldHeader = fsAnnotationProcessor.forcedFieldHeader(submissionFieldHeader.name());
             } else if (solutionClass != null) {
                 solutionFieldHeader = solutionClass.getFields()
                     .keySet()
                     .stream()
-                    .filter(fieldHeader -> fieldHeader.equals(fieldsSimilarityMapper.getBestMatch(submissionFieldHeader)))
+                    .filter(fieldHeader -> fieldsSimilarityMapper.getBestMatch(submissionFieldHeader)
+                        .map(fieldHeader::equals)
+                        .orElse(false))
                     .findAny()
-                    .orElse(fallbackFieldHeader);
+                    .orElseGet(fallbackFieldHeader);
             } else {
-                solutionFieldHeader = fallbackFieldHeader;
+                solutionFieldHeader = fallbackFieldHeader.get();
             }
             fields.put(submissionFieldHeader, solutionFieldHeader);
         }
 
         SimilarityMapper<MethodHeader> methodsSimilarityMapper = new SimilarityMapper<>(
             methods.keySet(),
-            solutionClass == null ? Collections.emptyList() : solutionClass.getMethods().keySet(),
+            getSolutionClass().map(solutionClass -> solutionClass.getMethods().keySet()).orElseGet(Collections::emptySet),
             transformationContext.getSimilarity(),
             methodHeader -> methodHeader.name() + methodHeader.descriptor()
         );
         for (MethodHeader submissionMethodHeader : methods.keySet()) {
             String submissionMethodName = submissionMethodHeader.name();
             String submissionMethodDescriptor = submissionMethodHeader.descriptor();
-            MethodHeader solutionMethodHeader;
-            MethodHeader fallbackMethodHeader = new MethodHeader(computedClassName,
+            Supplier<MethodHeader> fallbackMethodHeader = () -> new MethodHeader(computedClassHeader.name(),
                 submissionMethodHeader.access(),
                 submissionMethodHeader.name(),
-                submissionMethodHeader.descriptor(),
+                transformationContext.toComputedType(submissionMethodHeader.descriptor()).getDescriptor(),
                 submissionMethodHeader.signature(),
                 submissionMethodHeader.exceptions());
+            MethodHeader solutionMethodHeader;
             if (fsAnnotationProcessor.methodSignatureIsForced(submissionMethodName, submissionMethodDescriptor)) {
                 solutionMethodHeader = fsAnnotationProcessor.forcedMethodHeader(submissionMethodName, submissionMethodDescriptor);
             } else if (solutionClass != null) {
                 solutionMethodHeader = solutionClass.getMethods()
                     .keySet()
                     .stream()
-                    .filter(methodHeader -> methodHeader.equals(methodsSimilarityMapper.getBestMatch(submissionMethodHeader)))
+                    .filter(methodHeader -> methodsSimilarityMapper.getBestMatch(submissionMethodHeader)
+                        .map(methodHeader::equals)
+                        .orElse(false))
                     .findAny()
-                    .orElse(fallbackMethodHeader);
+                    .orElseGet(fallbackMethodHeader);
             } else {
-                solutionMethodHeader = fallbackMethodHeader;
+                solutionMethodHeader = fallbackMethodHeader.get();
             }
             methods.put(submissionMethodHeader, solutionMethodHeader);
         }
 
+        resolveSuperClassMembers(superClassMembers, originalClassHeader.superName(), originalClassHeader.interfaces());
         for (Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>> triple : superClassMembers) {
-            if (triple.getFirst().equals(superClass)) {
+            if (triple.getFirst().equals(originalClassHeader.superName())) {
                 triple.getThird()
                     .entrySet()
                     .stream()
@@ -314,7 +305,9 @@ public class SubmissionClassInfo extends ClassVisitor {
                     .stream()
                     .filter(entry -> !Modifier.isPrivate(entry.getKey().access()))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
-            resolveSuperClassMembers(superClassMembers, submissionClassInfo.superClass, submissionClassInfo.interfaces);
+            resolveSuperClassMembers(superClassMembers,
+                submissionClassInfo.originalClassHeader.superName(),
+                submissionClassInfo.originalClassHeader.interfaces());
         } else {
             try {
                 Class<?> clazz = Class.forName(className.replace('/', '.'));

@@ -4,10 +4,12 @@ import java.util.*;
 
 /**
  * This class holds information about the context of an invocation.
- * Context means the object a method was invoked on and the parameters it was invoked with
+ * Context means the instance the method was invoked on and the parameters it was invoked with
  * as well as the stack trace up to the point of invocation.
+ *
  * @author Daniel Mangold
  */
+@SuppressWarnings("unused")
 public class Invocation {
 
     private final Object instance;
@@ -31,7 +33,8 @@ public class Invocation {
      */
     public Invocation(Object instance, StackTraceElement[] stackTrace) {
         this.instance = instance;
-        this.stackTrace = stackTrace;
+        this.stackTrace = new StackTraceElement[stackTrace.length - 1];
+        System.arraycopy(stackTrace, 1, this.stackTrace, 0, stackTrace.length - 1);
     }
 
     /**
@@ -39,8 +42,19 @@ public class Invocation {
      *
      * @return the object the method was invoked on.
      */
-    public Object getInstance() {
-        return instance;
+    @SuppressWarnings("unchecked")
+    public <T> T getInstance() {
+        return (T) instance;
+    }
+
+    /**
+     * Returns the object the method was invoked on.
+     *
+     * @param clazz the class the instance will be cast to
+     * @return the object the method was invoked on
+     */
+    public <T> T getInstance(Class<T> clazz) {
+        return clazz.cast(instance);
     }
 
     /**
@@ -52,8 +66,13 @@ public class Invocation {
         return stackTrace;
     }
 
+    /**
+     * Returns the stack trace element of the caller.
+     *
+     * @return the stack trace element
+     */
     public StackTraceElement getCallerStackTraceElement() {
-        return stackTrace[1];
+        return stackTrace[0];
     }
 
     /**
@@ -178,7 +197,7 @@ public class Invocation {
 
     @Override
     public String toString() {
-        return "Invocation{instance=%s, stackTrace=%s, parameterValues=%s}".formatted(instance, Arrays.toString(stackTrace), parameterValues);
+        return "Invocation{instance=%s, parameterValues=%s, stackTrace=%s}".formatted(instance, parameterValues, Arrays.toString(stackTrace));
     }
 
     @Override

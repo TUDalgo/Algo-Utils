@@ -55,25 +55,14 @@ public record MethodHeader(String owner, int access, String name, String descrip
     }
 
     @Override
-    public Type[] getConstructorParameterTypes() {
-        return Constants.METHOD_HEADER_CONSTRUCTOR_TYPES;
-    }
-
-    @Override
-    public String[] getRecordComponents() {
-        return new String[] {"owner", "access", "name", "descriptor", "signature", "exceptions"};
-    }
-
-    @Override
-    public Object getValue(String name) {
-        return switch (name) {
-            case "owner" -> this.owner;
-            case "access" -> this.access;
-            case "name" -> this.name;
-            case "descriptor" -> this.descriptor;
-            case "signature" -> this.signature;
-            case "exceptions" -> this.exceptions;
-            default -> throw new IllegalArgumentException("Invalid name: " + name);
+    public HeaderRecordComponent[] getComponents() {
+        return new HeaderRecordComponent[] {
+            new HeaderRecordComponent(Constants.STRING_TYPE, owner),
+            new HeaderRecordComponent(Type.INT_TYPE, access),
+            new HeaderRecordComponent(Constants.STRING_TYPE, name),
+            new HeaderRecordComponent(Constants.STRING_TYPE, descriptor),
+            new HeaderRecordComponent(Constants.STRING_TYPE, signature),
+            new HeaderRecordComponent(Constants.STRING_ARRAY_TYPE, exceptions)
         };
     }
 

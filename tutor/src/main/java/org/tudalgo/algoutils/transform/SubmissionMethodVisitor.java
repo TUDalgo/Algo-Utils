@@ -1,11 +1,13 @@
 package org.tudalgo.algoutils.transform;
 
 import org.objectweb.asm.*;
+import org.objectweb.asm.tree.MethodNode;
 import org.tudalgo.algoutils.transform.util.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -27,8 +29,6 @@ class SubmissionMethodVisitor extends MethodVisitor {
     private final MethodHeader originalMethodHeader;
     private final MethodHeader computedMethodHeader;
     private final SubmissionClassInfo submissionClassInfo;
-    private final String className;
-    private final boolean defaultTransformationsOnly;
 
     private final boolean headerMismatch;
     private final boolean isStatic;
@@ -59,10 +59,6 @@ class SubmissionMethodVisitor extends MethodVisitor {
         this.submissionClassInfo = submissionClassInfo;
         this.originalMethodHeader = originalMethodHeader;
         this.computedMethodHeader = computedMethodHeader;
-        this.className = submissionClassInfo.getComputedClassName();
-        this.defaultTransformationsOnly = submissionClassInfo.getSolutionClass()
-            .map(solutionClassNode -> !solutionClassNode.getMethods().containsKey(computedMethodHeader))
-            .orElse(true);
 
         this.isStatic = (computedMethodHeader.access() & ACC_STATIC) != 0;
         this.isConstructor = computedMethodHeader.name().equals("<init>");
@@ -84,7 +80,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
             })
             .collect(Collectors.toList());
         if (!isStatic) {
-            this.fullFrameLocals.addFirst(isConstructor ? UNINITIALIZED_THIS : className);
+            this.fullFrameLocals.addFirst(isConstructor ? UNINITIALIZED_THIS : computedMethodHeader.owner());
         }
 
         int[] originalParameterTypes = Arrays.stream(Type.getArgumentTypes(originalMethodHeader.descriptor()))
@@ -100,6 +96,9 @@ class SubmissionMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitCode() {
+        Optional<MethodNode> solutionMethodNode = submissionClassInfo.getSolutionClass()
+            .map(solutionClassNode -> solutionClassNode.getMethods().get(computedMethodHeader));
+
         Label submissionExecutionHandlerVarLabel = new Label();
         Label methodHeaderVarLabel = new Label();
         Label substitutionCheckLabel = new Label();
@@ -120,7 +119,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
             super.visitLabel(submissionExecutionHandlerVarLabel);
 
             // replicate method header in bytecode and store in locals array
-            buildHeader(getDelegate(), computedMethodHeader);
+            computedMethodHeader.buildHeader(getDelegate());
             super.visitVarInsn(ASTORE, methodHeaderIndex);
             super.visitLabel(methodHeaderVarLabel);
 
@@ -156,7 +155,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
             super.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
             super.visitVarInsn(ALOAD, methodHeaderIndex);
             Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBSTITUTION.toMethodInsn(getDelegate(), false);
-            super.visitJumpInsn(IFEQ, defaultTransformationsOnly ? submissionCodeLabel : delegationCheckLabel); // jump to label if useSubstitution(...) == false
+            super.visitJumpInsn(IFEQ, solutionMethodNode.isPresent() ? delegationCheckLabel : submissionCodeLabel); // jump to label if useSubstitution(...) == false
 
             // get substitution and execute it
             super.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
@@ -244,7 +243,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
 
                 fullFrameLocals.removeLast();
                 List<Object> locals = new ArrayList<>(fullFrameLocals);
-                locals.set(0, className);
+                locals.set(0, computedMethodHeader.owner());
                 super.visitFrame(F_FULL, locals.size(), locals.toArray(), 0, null);
                 super.visitLabel(substitutionExecuteLabel);
                 super.visitLocalVariable("constructorInvocation",
@@ -276,7 +275,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
 
         // Method delegation
         // if only default transformations are applied, skip delegation
-        if (!defaultTransformationsOnly) {
+        if (solutionMethodNode.isPresent()) {
             // check if call should be delegated to solution or not
             fullFrameLocals.removeLast();
             super.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
@@ -303,8 +302,7 @@ class SubmissionMethodVisitor extends MethodVisitor {
                 methodHeaderVarLabel,
                 delegationCodeLabel,
                 methodHeaderIndex);
-            //noinspection OptionalGetWithoutIsPresent
-            submissionClassInfo.getSolutionClass().get().getMethods().get(computedMethodHeader).accept(getDelegate());
+            solutionMethodNode.get().accept(getDelegate());
 
             super.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
             super.visitLabel(submissionCodeLabel);
@@ -348,20 +346,15 @@ class SubmissionMethodVisitor extends MethodVisitor {
             super.visitFieldInsn(opcode, owner, name, descriptor);
         } else {
             if (owner.startsWith("[")) {  // stupid edge cases
-                Type ownerType = Type.getType(owner);
-                Type actualOwner = Type.getObjectType(transformationContext.getSubmissionClassInfo(ownerType.getElementType().getInternalName())
-                    .getComputedClassName());
                 super.visitFieldInsn(opcode,
-                    "[".repeat(ownerType.getDimensions()) + actualOwner.getDescriptor(),
+                    transformationContext.toComputedType(owner).getInternalName(),
                     name,
-                    transformationContext.getComputedType(Type.getType(descriptor)).getDescriptor());
+                    transformationContext.toComputedType(descriptor).getDescriptor());
             } else {
                 FieldHeader computedFieldHeader = transformationContext.getSubmissionClassInfo(owner).getComputedFieldHeader(name);
-                boolean isStaticOpcode = opcode == GETSTATIC || opcode == PUTSTATIC;
-                boolean isStaticField = (computedFieldHeader.access() & ACC_STATIC) != 0;
-                if (isStaticOpcode == isStaticField) {
+                if (TransformationUtils.opcodeIsCompatible(opcode, computedFieldHeader.access())) {
                     super.visitFieldInsn(opcode,
-                        transformationContext.getComputedName(computedFieldHeader.owner()),
+                        transformationContext.toComputedType(computedFieldHeader.owner()).getInternalName(),
                         computedFieldHeader.name(),
                         computedFieldHeader.descriptor());
                 } else { // if incompatible
@@ -382,23 +375,20 @@ class SubmissionMethodVisitor extends MethodVisitor {
         } else if (!transformationContext.isSubmissionClass(owner)) {
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
         } else if (owner.startsWith("[")) {  // stupid edge cases
-            Type ownerType = Type.getType(owner);
-            Type actualOwner = Type.getObjectType(transformationContext.getSubmissionClassInfo(ownerType.getElementType().getInternalName())
-                .getComputedClassName());
-            super.visitMethodInsn(opcode, "[".repeat(ownerType.getDimensions()) + actualOwner.getDescriptor(), name, descriptor, isInterface);
+            super.visitMethodInsn(opcode,
+                transformationContext.toComputedType(owner).getInternalName(),
+                name,
+                transformationContext.toComputedType(descriptor).getDescriptor(),
+                isInterface);
         } else {
             methodHeader = transformationContext.getSubmissionClassInfo(owner).getComputedMethodHeader(name, descriptor);
-            if ((opcode == INVOKESTATIC) == ((methodHeader.access() & ACC_STATIC) != 0)) {
+            if (TransformationUtils.opcodeIsCompatible(opcode, methodHeader.access())) {
                 super.visitMethodInsn(opcode, methodHeader.owner(), methodHeader.name(), methodHeader.descriptor(), isInterface);
             } else {
-                Type returnType = transformationContext.getComputedType(Type.getReturnType(descriptor));
-                Type[] parameterTypes = Arrays.stream(Type.getArgumentTypes(descriptor))
-                    .map(transformationContext::getComputedType)
-                    .toArray(Type[]::new);
                 super.visitMethodInsn(opcode,
                     methodHeader.owner(),
                     name + "$submission",
-                    Type.getMethodDescriptor(returnType, parameterTypes),
+                    transformationContext.toComputedType(descriptor).getDescriptor(),
                     isInterface);
             }
         }
@@ -408,33 +398,14 @@ class SubmissionMethodVisitor extends MethodVisitor {
     public void visitLdcInsn(Object value) {
         if (headerMismatch) return;
 
-        if (value instanceof Type type && transformationContext.isSubmissionClass(type.getInternalName())) {
-            if (type.getSort() == Type.OBJECT) {
-                value = Type.getObjectType(transformationContext.getSubmissionClassInfo(type.getInternalName()).getComputedClassName());
-            } else {  // else must be array
-                Type elementType = Type.getObjectType(transformationContext.getSubmissionClassInfo(type.getElementType().getInternalName())
-                    .getComputedClassName());
-                value = Type.getObjectType("[".repeat(type.getDimensions()) + elementType.getDescriptor());
-            }
-        }
-        super.visitLdcInsn(value);
+        super.visitLdcInsn(value instanceof Type type ? transformationContext.toComputedType(type) : value);
     }
 
     @Override
     public void visitTypeInsn(int opcode, String type) {
         if (headerMismatch) return;
 
-        Type paramType = type.startsWith("[") ? Type.getType(type) : Type.getObjectType(type);
-        if (transformationContext.isSubmissionClass(paramType.getInternalName())) {
-            if (paramType.getSort() == Type.OBJECT) {
-                type = transformationContext.getSubmissionClassInfo(paramType.getInternalName()).getComputedClassName();
-            } else {  // else must be array
-                Type elementType = Type.getObjectType(transformationContext.getSubmissionClassInfo(paramType.getElementType().getInternalName())
-                    .getComputedClassName());
-                type = "[".repeat(paramType.getDimensions()) + elementType.getDescriptor();
-            }
-        }
-        super.visitTypeInsn(opcode, type);
+        super.visitTypeInsn(opcode, transformationContext.toComputedType(type).getInternalName());
     }
 
     /**
@@ -544,22 +515,10 @@ class SubmissionMethodVisitor extends MethodVisitor {
     public void visitFrame(int type, int numLocal, Object[] local, int numStack, Object[] stack) {
         if (!headerMismatch) {
             Object[] computedLocals = Arrays.stream(local)
-                .map(o -> {
-                    if (o instanceof String s && transformationContext.isSubmissionClass(s)) {
-                        return transformationContext.getComputedName(s);
-                    } else {
-                        return o;
-                    }
-                })
+                .map(o -> o instanceof String s ? transformationContext.toComputedType(s).getInternalName() : o)
                 .toArray();
             Object[] computedStack = Arrays.stream(stack)
-                .map(o -> {
-                    if (o instanceof String s && transformationContext.isSubmissionClass(s)) {
-                        return transformationContext.getComputedName(s);
-                    } else {
-                        return o;
-                    }
-                })
+                .map(o -> o instanceof String s ? transformationContext.toComputedType(s).getInternalName() : o)
                 .toArray();
             super.visitFrame(type, numLocal, computedLocals, numStack, computedStack);
         }
@@ -602,9 +561,9 @@ class SubmissionMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-        if (!headerMismatch) {
-            super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
-        }
+        if (headerMismatch) return;
+
+        super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
     }
 
     @Override
@@ -623,9 +582,9 @@ class SubmissionMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
-        if (!headerMismatch) {
-            super.visitMultiANewArrayInsn(descriptor, numDimensions);
-        }
+        if (headerMismatch) return;
+
+        super.visitMultiANewArrayInsn(transformationContext.toComputedType(descriptor).getDescriptor(), numDimensions);
     }
 
     @Override
@@ -642,9 +601,9 @@ class SubmissionMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
-        if (!headerMismatch) {
-            super.visitTryCatchBlock(start, end, handler, type);
-        }
+        if (headerMismatch) return;
+
+        super.visitTryCatchBlock(start, end, handler, type != null ? transformationContext.toComputedType(type).getInternalName() : null);
     }
 
     @Override
@@ -654,9 +613,9 @@ class SubmissionMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
-        if (!headerMismatch) {
-            super.visitLocalVariable(name, descriptor, signature, start, end, index);
-        }
+        if (headerMismatch) return;
+
+        super.visitLocalVariable(name, transformationContext.toComputedType(Type.getType(descriptor)).getDescriptor(), signature, start, end, index);
     }
 
     @Override
