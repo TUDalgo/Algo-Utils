@@ -83,12 +83,29 @@ public record MethodHeader(String owner, int access, String name, String descrip
      * @param isInterface   true, if the method's owner is an interface
      */
     public void toMethodInsn(MethodVisitor methodVisitor, boolean isInterface) {
-        int opcode = isInterface ? INVOKEINTERFACE : (access & ACC_STATIC) != 0 ? INVOKESTATIC : name.equals("<init>") ? INVOKESPECIAL : INVOKEVIRTUAL;
+        int opcode = isInterface ? INVOKEINTERFACE : getOpcode();
         methodVisitor.visitMethodInsn(opcode,
             owner,
             name,
             descriptor,
             isInterface);
+    }
+
+    /**
+     * Returns the opcode needed to invoke this method (except INVOKEINTERFACE since it also depends on the class).
+     *
+     * @return the opcode
+     */
+    public int getOpcode() {
+        if ((access & ACC_STATIC) != 0) {
+            return INVOKESTATIC;
+        } else if (name.equals("<init>")) {
+            return INVOKESPECIAL;
+        } else if (TransformationUtils.isLambdaMethod(access, name)) {
+            return INVOKEDYNAMIC;
+        } else {
+            return INVOKEVIRTUAL;
+        }
     }
 
     /**

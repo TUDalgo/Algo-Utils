@@ -1,5 +1,11 @@
 package org.tudalgo.algoutils.transform.util;
 
+import org.objectweb.asm.Opcodes;
+import org.tudalgo.algoutils.transform.SubmissionExecutionHandler;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.*;
 
 /**
@@ -12,29 +18,35 @@ import java.util.*;
 @SuppressWarnings("unused")
 public class Invocation {
 
-    private final Object instance;
+    private final Class<?> declaringClass;
+    private final MethodHeader methodHeader;
     private final StackTraceElement[] stackTrace;
+    private final Object instance;
     private final List<Object> parameterValues = new ArrayList<>();
 
     /**
-     * Constructs a new invocation.
+     * Constructs a new invocation (static / constructor variant).
      *
-     * @param stackTrace the stack trace up to the point of invocation
+     * @param declaringClass the target method for this invocation
+     * @param stackTrace   the stack trace up to the point of invocation
      */
-    public Invocation(StackTraceElement[] stackTrace) {
-        this(null, stackTrace);
+    public Invocation(Class<?> declaringClass, MethodHeader methodHeader, StackTraceElement[] stackTrace) {
+        this(declaringClass, methodHeader, stackTrace, null);
     }
 
     /**
-     * Constructs a new invocation.
+     * Constructs a new invocation (non-static / non-constructor variant).
      *
-     * @param instance   the object on which this invocation takes place
-     * @param stackTrace the stack trace up to the point of invocation
+     * @param declaringClass the target method for this invocation
+     * @param stackTrace   the stack trace up to the point of invocation
+     * @param instance     the object on which this invocation takes place
      */
-    public Invocation(Object instance, StackTraceElement[] stackTrace) {
-        this.instance = instance;
+    public Invocation(Class<?> declaringClass, MethodHeader methodHeader, StackTraceElement[] stackTrace, Object instance) {
+        this.declaringClass = declaringClass;
+        this.methodHeader = methodHeader;
         this.stackTrace = new StackTraceElement[stackTrace.length - 1];
         System.arraycopy(stackTrace, 1, this.stackTrace, 0, stackTrace.length - 1);
+        this.instance = instance;
     }
 
     /**
@@ -193,6 +205,66 @@ public class Invocation {
      */
     public void addParameter(Object value) {
         parameterValues.add(value);
+    }
+
+    /**
+     * Calls the original method with the stored parameter values.
+     *
+     * @param delegate whether to use the solution (delegated) or submission class implementation (not delegated)
+     * @return the value returned the original method
+     */
+    public Object callOriginalMethod(boolean delegate) {
+        return callOriginalMethod(delegate, parameterValues.toArray());
+    }
+
+    /**
+     * Calls the original method with the given parameter values.
+     *
+     * @param delegate whether to use the solution (delegated) or submission class implementation (not delegated)
+     * @param params   the values to invoke the original method with
+     * @return the value returned the original method
+     */
+    public Object callOriginalMethod(boolean delegate, Object... params) {
+        Object[] invocationArgs;
+        if (instance != null) {
+            invocationArgs = new Object[params.length + 1];
+            invocationArgs[0] = instance;
+            System.arraycopy(params, 0, invocationArgs, 1, params.length);
+        } else {
+            invocationArgs = params;
+        }
+
+        SubmissionExecutionHandler executionHandler = SubmissionExecutionHandler.getInstance();
+        SubmissionExecutionHandler.Internal sehInternal = executionHandler.new Internal();
+        MethodSubstitution methodSubstitution = sehInternal.getSubstitution(methodHeader);
+        executionHandler.disableMethodSubstitution(methodHeader);
+        boolean isDelegated = !sehInternal.useSubmissionImpl(methodHeader);
+        if (delegate) {
+            executionHandler.enableMethodDelegation(methodHeader);
+        } else {
+            executionHandler.disableMethodDelegation(methodHeader);
+        }
+
+        try {
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
+            MethodType methodType = MethodType.fromMethodDescriptorString(methodHeader.descriptor(), getClass().getClassLoader());
+            MethodHandle methodHandle = switch (methodHeader.getOpcode()) {
+                case Opcodes.INVOKEVIRTUAL -> lookup.findVirtual(declaringClass, methodHeader.name(), methodType);
+                case Opcodes.INVOKESPECIAL -> lookup.findConstructor(declaringClass, methodType);
+                case Opcodes.INVOKESTATIC -> lookup.findStatic(declaringClass, methodHeader.name(), methodType);
+                default -> throw new IllegalArgumentException("Unsupported opcode: " + methodHeader.getOpcode());
+            };
+            return methodHandle.invoke(invocationArgs);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        } finally {
+            executionHandler.substituteMethod(methodHeader, methodSubstitution);
+            if (isDelegated) {
+                executionHandler.enableMethodDelegation(methodHeader);
+            } else {
+                executionHandler.disableMethodDelegation(methodHeader);
+            }
+        }
     }
 
     @Override

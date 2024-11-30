@@ -417,30 +417,22 @@ class SubmissionMethodVisitor extends MethodVisitor {
 
         super.visitTypeInsn(NEW, Constants.INVOCATION_TYPE.getInternalName());
         super.visitInsn(DUP);
+        super.visitLdcInsn(Type.getObjectType(computedMethodHeader.owner()));
+        computedMethodHeader.buildHeader(getDelegate());
+        super.visitMethodInsn(INVOKESTATIC,
+            threadType.getInternalName(),
+            "currentThread",
+            Type.getMethodDescriptor(threadType),
+            false);
+        super.visitMethodInsn(INVOKEVIRTUAL,
+            threadType.getInternalName(),
+            "getStackTrace",
+            Type.getMethodDescriptor(stackTraceElementArrayType),
+            false);
         if (!isStatic && !isConstructor) {
             super.visitVarInsn(ALOAD, 0);
-            super.visitMethodInsn(INVOKESTATIC,
-                threadType.getInternalName(),
-                "currentThread",
-                Type.getMethodDescriptor(threadType),
-                false);
-            super.visitMethodInsn(INVOKEVIRTUAL,
-                threadType.getInternalName(),
-                "getStackTrace",
-                Type.getMethodDescriptor(stackTraceElementArrayType),
-                false);
             Constants.INVOCATION_CONSTRUCTOR_WITH_INSTANCE.toMethodInsn(getDelegate(), false);
         } else {
-            super.visitMethodInsn(INVOKESTATIC,
-                threadType.getInternalName(),
-                "currentThread",
-                Type.getMethodDescriptor(threadType),
-                false);
-            super.visitMethodInsn(INVOKEVIRTUAL,
-                threadType.getInternalName(),
-                "getStackTrace",
-                Type.getMethodDescriptor(stackTraceElementArrayType),
-                false);
             Constants.INVOCATION_CONSTRUCTOR.toMethodInsn(getDelegate(), false);
         }
         // load parameter with opcode (ALOAD, ILOAD, etc.) for type and ignore "this", if it exists
