@@ -217,20 +217,6 @@ public final class TransformationUtils {
         return maxStack;
     }
 
-    public static void buildExceptionForHeaderMismatch(MethodVisitor mv, String message, Header expected, Header actual) {
-        mv.visitTypeInsn(NEW, Type.getInternalName(AssertionFailedError.class));
-        mv.visitInsn(DUP);
-        mv.visitLdcInsn(message);
-        expected.buildHeader(mv);
-        actual.buildHeader(mv);
-        mv.visitMethodInsn(INVOKESPECIAL,
-            Type.getInternalName(AssertionFailedError.class),
-            "<init>",
-            Type.getMethodDescriptor(Type.VOID_TYPE, Constants.STRING_TYPE, Constants.OBJECT_TYPE, Constants.OBJECT_TYPE),
-            false);
-        mv.visitInsn(ATHROW);
-    }
-
     /**
      * Returns a human-readable form of the given modifiers.
      *

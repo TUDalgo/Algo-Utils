@@ -162,25 +162,20 @@ class SubmissionClassVisitor extends ClassVisitor {
             MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
 
             if (!TransformationUtils.contextIsCompatible(access, computedMethodHeader.access())) {
-                MethodHeader methodHeader = new MethodHeader(computedMethodHeader.owner(),
+                computedMethodHeader = new MethodHeader(computedMethodHeader.owner(),
                     access,
                     name + "$submission",
                     transformationContext.toComputedType(descriptor).getDescriptor(),
                     signature,
                     exceptions);
-                return new SubmissionMethodVisitor(methodHeader.toMethodVisitor(getDelegate()),
-                    transformationContext,
-                    submissionClassInfo,
-                    originalMethodHeader,
-                    methodHeader);
             } else {
                 visitedMethods.add(computedMethodHeader);
-                return new SubmissionMethodVisitor(computedMethodHeader.toMethodVisitor(getDelegate()),
-                    transformationContext,
-                    submissionClassInfo,
-                    originalMethodHeader,
-                    computedMethodHeader);
             }
+            return new SubmissionMethodVisitor(computedMethodHeader.toMethodVisitor(getDelegate()),
+                transformationContext,
+                submissionClassInfo,
+                originalMethodHeader,
+                computedMethodHeader);
         }
     }
 

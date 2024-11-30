@@ -19,6 +19,7 @@ public final class Constants {
     public static final Type STRING_ARRAY_TYPE = Type.getType(String[].class);
     public static final Type SET_TYPE = Type.getType(Set.class);
 
+    public static final Type HEADER_TYPE = Type.getType(Header.class);
     public static final Type CLASS_HEADER_TYPE = Type.getType(ClassHeader.class);
     public static final Type FIELD_HEADER_TYPE = Type.getType(FieldHeader.class);
     public static final Type METHOD_HEADER_TYPE = Type.getType(MethodHeader.class);

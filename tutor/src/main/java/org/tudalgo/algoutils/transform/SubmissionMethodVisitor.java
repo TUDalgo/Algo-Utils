@@ -327,10 +327,8 @@ class SubmissionMethodVisitor extends MethodVisitor {
         }
 
         if (headerMismatch) {
-            TransformationUtils.buildExceptionForHeaderMismatch(getDelegate(),
-                "Method has incorrect return or parameter types",
-                computedMethodHeader,
-                originalMethodHeader);
+            new IncompatibleHeaderException("Method has incorrect return or parameter types", computedMethodHeader, originalMethodHeader)
+                .replicateInBytecode(getDelegate(), true);
         } else {
             // visit original code
             super.visitCode();
