@@ -9,6 +9,7 @@ import org.tudalgo.algoutils.transform.SubmissionClassInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * A record for holding context information for the transformation process.
@@ -108,8 +109,9 @@ public final class TransformationContext {
     @SuppressWarnings("unchecked")
     public void computeClassesSimilarity() {
         classSimilarityMapper = new SimilarityMapper<>(submissionClassNames,
-            (Map<String, Collection<String>>) configuration.get(SolutionMergingClassTransformer.Config.SOLUTION_CLASSES),
-            getSimilarity());
+            (Map<String, Collection<? extends String>>) configuration.get(SolutionMergingClassTransformer.Config.SOLUTION_CLASSES),
+            getSimilarity(),
+            Function.identity());
     }
 
     // Submission classes
