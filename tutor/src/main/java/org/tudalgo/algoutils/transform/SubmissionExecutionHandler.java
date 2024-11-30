@@ -139,13 +139,6 @@ public class SubmissionExecutionHandler {
     // Invocation logging
 
     /**
-     * Resets the logging of method invocations to log no invocations.
-     */
-    public void resetMethodInvocationLogging() {
-        methodInvocations.clear();
-    }
-
-    /**
      * Enables logging of method / constructor invocations for the given executable.
      *
      * @param executable the method / constructor to enable invocation logging for
@@ -162,6 +155,34 @@ public class SubmissionExecutionHandler {
     public void enableMethodInvocationLogging(MethodHeader methodHeader) {
         methodInvocations.computeIfAbsent(methodHeader.owner(), k -> new HashMap<>())
             .putIfAbsent(methodHeader, new ArrayList<>());
+    }
+
+    /**
+     * Disables logging of method / constructor invocations for the given executable.
+     * Note: This also discards all logged invocations.
+     *
+     * @param executable the method / constructor to disable invocation logging for
+     */
+    public void disableMethodInvocationLogging(Executable executable) {
+        disableMethodInvocationLogging(new MethodHeader(executable));
+    }
+
+    /**
+     * Disables logging of method invocations for the given method.
+     * Note: This also discards all logged invocations.
+     *
+     * @param methodHeader a method header describing the method
+     */
+    public void disableMethodInvocationLogging(MethodHeader methodHeader) {
+        Optional.ofNullable(methodInvocations.get(methodHeader.owner()))
+            .ifPresent(map -> map.remove(methodHeader));
+    }
+
+    /**
+     * Resets the logging of method invocations to log no invocations.
+     */
+    public void resetMethodInvocationLogging() {
+        methodInvocations.clear();
     }
 
     /**
@@ -190,13 +211,6 @@ public class SubmissionExecutionHandler {
     // Method substitution
 
     /**
-     * Resets the substitution of methods.
-     */
-    public void resetMethodSubstitution() {
-        methodSubstitutions.clear();
-    }
-
-    /**
      * Substitute calls to the given method / constructor with the invocation of the given {@link MethodSubstitution}.
      * In other words, instead of executing the instructions of either the original submission or the solution,
      * this can be used to make the method do and return anything during runtime.
@@ -221,13 +235,53 @@ public class SubmissionExecutionHandler {
             .put(methodHeader, substitute);
     }
 
+    /**
+     * Disables substitution for the given method / constructor.
+     *
+     * @param executable the substituted method / constructor
+     */
+    public void disableMethodSubstitution(Executable executable) {
+        disableMethodSubstitution(new MethodHeader(executable));
+    }
+
+    /**
+     * Disables substitution for the given method.
+     *
+     * @param methodHeader a method header describing the method
+     */
+    public void disableMethodSubstitution(MethodHeader methodHeader) {
+        Optional.ofNullable(methodSubstitutions.get(methodHeader.owner()))
+            .ifPresent(map -> map.remove(methodHeader));
+    }
+
+    /**
+     * Resets the substitution of methods.
+     */
+    public void resetMethodSubstitution() {
+        methodSubstitutions.clear();
+    }
+
     // Method delegation
 
     /**
-     * Resets the delegation of methods.
+     * Enables delegation to the solution for the given executable.
+     * Note: Delegation is enabled by default, so this method usually does not have to be called before invocations.
+     *
+     * @param executable the method / constructor to enable delegation for.
      */
-    public void resetMethodDelegation() {
-        methodDelegationAllowlist.clear();
+    public void enableMethodDelegation(Executable executable) {
+        enableMethodDelegation(new MethodHeader(executable));
+    }
+
+    /**
+     * Enables delegation to the solution for the given method.
+     * Note: Delegation is enabled by default, so this method usually does not have to be called before invocations.
+     *
+     * @param methodHeader a method header describing the method
+     */
+    public void enableMethodDelegation(MethodHeader methodHeader) {
+        methodDelegationAllowlist.computeIfAbsent(methodHeader.owner(), k -> new HashMap<>())
+            .put(methodHeader, false);
     }
 
     /**
@@ -247,6 +301,13 @@ public class SubmissionExecutionHandler {
     public void disableMethodDelegation(MethodHeader methodHeader) {
         methodDelegationAllowlist.computeIfAbsent(methodHeader.owner(), k -> new HashMap<>())
             .put(methodHeader, true);
+    }
+
+    /**
+     * Resets the delegation of methods.
+     */
+    public void resetMethodDelegation() {
+        methodDelegationAllowlist.clear();
     }
 
     /**
