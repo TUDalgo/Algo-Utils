@@ -152,6 +152,7 @@ public class SubmissionClassInfo extends ClassVisitor {
 
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        // TODO: make sure interfaces is not null
         originalClassHeader = new ClassHeader(access, name, signature, superName, interfaces);
         String computedClassName;
         if (fsAnnotationProcessor.classIdentifierIsForced()) {

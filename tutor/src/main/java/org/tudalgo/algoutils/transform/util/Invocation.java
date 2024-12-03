@@ -25,7 +25,7 @@ public class Invocation {
     private final List<Object> parameterValues = new ArrayList<>();
 
     /**
-     * Constructs a new invocation (static / constructor variant).
+     * Constructs a new invocation (static variant).
      *
      * @param declaringClass the target method for this invocation
      * @param stackTrace   the stack trace up to the point of invocation
@@ -35,7 +35,7 @@ public class Invocation {
     }
 
     /**
-     * Constructs a new invocation (non-static / non-constructor variant).
+     * Constructs a new invocation (non-static variant).
      *
      * @param declaringClass the target method for this invocation
      * @param stackTrace   the stack trace up to the point of invocation

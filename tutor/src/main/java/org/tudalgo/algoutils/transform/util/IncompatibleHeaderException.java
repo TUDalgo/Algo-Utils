@@ -33,7 +33,7 @@ public class IncompatibleHeaderException extends RuntimeException {
      *
      * @param message  the exception message
      * @param expected the expected header
-     * @param actual   the actual header
+     * @param actual   the actual header, may be null
      */
     public IncompatibleHeaderException(String message, Header expected, Header actual) {
         super();
@@ -64,7 +64,12 @@ public class IncompatibleHeaderException extends RuntimeException {
         mv.visitLdcInsn(message);
         maxStack = stackSize = 3;
         maxStack = Math.max(maxStack, stackSize++ + expected.buildHeader(mv));
-        maxStack = Math.max(maxStack, stackSize + actual.buildHeader(mv));
+        if (actual != null) {
+            maxStack = Math.max(maxStack, stackSize + actual.buildHeader(mv));
+        } else {
+            mv.visitInsn(ACONST_NULL);
+            maxStack = Math.max(maxStack, ++stackSize);
+        }
         mv.visitMethodInsn(INVOKESPECIAL,
             Type.getInternalName(getClass()),
             "<init>",

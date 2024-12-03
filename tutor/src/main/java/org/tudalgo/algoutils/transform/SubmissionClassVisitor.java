@@ -1,5 +1,7 @@
 package org.tudalgo.algoutils.transform;
 
+import org.objectweb.asm.tree.MethodNode;
+import org.tudalgo.algoutils.transform.methods.InjectingMethodVisitor;
 import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.*;
 
@@ -136,15 +138,15 @@ class SubmissionClassVisitor extends ClassVisitor {
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
         FieldHeader fieldHeader = submissionClassInfo.getComputedFieldHeader(name);
 
-        if (TransformationUtils.contextIsCompatible(access, fieldHeader.access())) {
-            visitedFields.add(fieldHeader);
-            return fieldHeader.toFieldVisitor(getDelegate(), value);
-        } else {
+        if (!TransformationUtils.contextIsCompatible(access, fieldHeader.access()) || visitedFields.contains(fieldHeader)) {
             return super.visitField(TransformationUtils.transformAccess(access),
                 name + "$submission",
                 fieldHeader.descriptor(),
                 fieldHeader.signature(),
                 value);
+        } else {
+            visitedFields.add(fieldHeader);
+            return fieldHeader.toFieldVisitor(getDelegate(), value);
         }
     }
 
@@ -160,8 +162,17 @@ class SubmissionClassVisitor extends ClassVisitor {
         } else {
             MethodHeader originalMethodHeader = new MethodHeader(originalClassHeader.name(), access, name, descriptor, signature, exceptions);
             MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
+            int[] originalParameterTypes = Arrays.stream(Type.getArgumentTypes(originalMethodHeader.descriptor()))
+                .mapToInt(Type::getSort)
+                .toArray();
+            int originalReturnType = Type.getReturnType(originalMethodHeader.descriptor()).getSort();
+            int[] computedParameterTypes = Arrays.stream(Type.getArgumentTypes(computedMethodHeader.descriptor()))
+                .mapToInt(Type::getSort)
+                .toArray();
+            int computedReturnType = Type.getReturnType(computedMethodHeader.descriptor()).getSort();
+            boolean headerMismatch = !(Arrays.equals(originalParameterTypes, computedParameterTypes) && originalReturnType == computedReturnType);
 
-            if (!TransformationUtils.contextIsCompatible(access, computedMethodHeader.access())) {
+            if (!TransformationUtils.contextIsCompatible(access, computedMethodHeader.access()) || visitedMethods.contains(computedMethodHeader) || headerMismatch) {
                 computedMethodHeader = new MethodHeader(computedMethodHeader.owner(),
                     access,
                     name + "$submission",
@@ -202,8 +213,17 @@ class SubmissionClassVisitor extends ClassVisitor {
                 .entrySet()
                 .stream()
                 .filter(entry -> !visitedMethods.contains(entry.getKey()))
-                .map(Map.Entry::getValue)
-                .forEach(methodNode -> methodNode.accept(getDelegate()));
+                .forEach(entry -> {
+                    MethodHeader methodHeader = entry.getKey();
+                    MethodNode methodNode = entry.getValue();
+
+                    if (TransformationUtils.isLambdaMethod(methodHeader.access(), methodHeader.name())) {
+                        methodNode.accept(getDelegate());
+                    } else {
+                        MethodVisitor mv = methodHeader.toMethodVisitor(getDelegate());
+                        methodNode.accept(new InjectingMethodVisitor(mv, transformationContext, submissionClassInfo, methodHeader));
+                    }
+                });
         }
 
         injectClassMetadata();

@@ -102,5 +102,18 @@ public class SimilarityMapper<T> {
                     newPair.getSecond() > oldPair.getSecond() ? newPair : oldPair);
             }
         }
+
+        // find and remove duplicate mappings
+        Map<T, Stack<T>> reverseMapping = new HashMap<>();  // column => rows
+        bestMatches.forEach((t, pair) -> reverseMapping.computeIfAbsent(pair.getFirst(), k -> new Stack<>()).push(t));
+        reverseMapping.entrySet()
+            .stream()
+            .filter(entry -> entry.getValue().size() > 1)
+            .forEach(entry -> {
+                Stack<T> stack = entry.getValue();
+                stack.sort(Comparator.comparingDouble(t -> bestMatches.get(t).getSecond()));
+                stack.pop(); // exclude the best match from removal
+                stack.forEach(bestMatches::remove); // remove the rest
+            });
     }
 }

@@ -76,13 +76,11 @@ public class SolutionClassNode extends ClassNode {
 
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-        MethodNode methodNode;
-        if ((access & ACC_SYNTHETIC) != 0 && name.startsWith("lambda$")) {  // if method is lambda
-            methodNode = getMethodNode(access, name + "$solution", descriptor, signature, exceptions);
-        } else {
-            methodNode = getMethodNode(access, name, descriptor, signature, exceptions);
-            methods.put(new MethodHeader(className, access, name, descriptor, signature, exceptions), methodNode);
+        if (TransformationUtils.isLambdaMethod(access, name)) {
+            name += "$solution";
         }
+        MethodNode methodNode = getMethodNode(access, name, descriptor, signature, exceptions);
+        methods.put(new MethodHeader(className, access, name, descriptor, signature, exceptions), methodNode);
         return methodNode;
     }
 

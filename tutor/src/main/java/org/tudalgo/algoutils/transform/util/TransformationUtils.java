@@ -1,6 +1,5 @@
 package org.tudalgo.algoutils.transform.util;
 
-import org.opentest4j.AssertionFailedError;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 
@@ -30,15 +29,16 @@ public final class TransformationUtils {
 
     /**
      * Whether the given members have the same execution context.
-     * Two members are considered to have the same execution context is they are either
+     * Two members are considered to have the same execution context if they are either
      * both static or both non-static.
+     * Furthermore, if they are non-static they need to be both abstract or non-abstract.
      *
      * @param access1 the modifiers of the first member
      * @param access2 the modifiers of the second member
      * @return true, if both members have the same execution context, otherwise false
      */
     public static boolean contextIsCompatible(int access1, int access2) {
-        return (access1 & ACC_STATIC) == (access2 & ACC_STATIC);
+        return (access1 & ACC_STATIC) == (access2 & ACC_STATIC) && (access1 & ACC_ABSTRACT) == (access2 & ACC_ABSTRACT);
     }
 
     /**

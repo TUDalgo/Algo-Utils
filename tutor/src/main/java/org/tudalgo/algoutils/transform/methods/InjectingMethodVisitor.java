@@ -1,48 +1,33 @@
-package org.tudalgo.algoutils.transform;
+package org.tudalgo.algoutils.transform.methods;
 
-import org.objectweb.asm.*;
-import org.objectweb.asm.tree.MethodNode;
-import org.tudalgo.algoutils.transform.methods.BaseMethodVisitor;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
+import org.tudalgo.algoutils.transform.SubmissionClassInfo;
 import org.tudalgo.algoutils.transform.util.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.objectweb.asm.Opcodes.*;
-import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
+import static org.objectweb.asm.Opcodes.F_CHOP;
 import static org.tudalgo.algoutils.transform.util.TransformationUtils.*;
-import static org.tudalgo.algoutils.transform.util.TransformationUtils.boxType;
+import static org.tudalgo.algoutils.transform.util.TransformationUtils.unboxType;
 
-/**
- * A method visitor for transforming submission methods.
- *
- * @see SubmissionClassVisitor
- * @author Daniel Mangold
- */
-class SubmissionMethodVisitor extends BaseMethodVisitor {
+public class InjectingMethodVisitor extends BaseMethodVisitor {
 
     private final int submissionExecutionHandlerIndex;
     private final int methodHeaderIndex;
     private final int methodSubstitutionIndex;
     private final int constructorInvocationIndex;
 
-    /**
-     * Constructs a new {@link SubmissionMethodVisitor}.
-     *
-     * @param delegate              the method visitor to delegate to
-     * @param transformationContext the transformation context
-     * @param submissionClassInfo   information about the submission class this method belongs to
-     * @param originalMethodHeader  the computed method header of this method
-     */
-    SubmissionMethodVisitor(MethodVisitor delegate,
-                            TransformationContext transformationContext,
-                            SubmissionClassInfo submissionClassInfo,
-                            MethodHeader originalMethodHeader,
-                            MethodHeader computedMethodHeader) {
-        super(delegate, transformationContext, submissionClassInfo, originalMethodHeader, computedMethodHeader);
+    public InjectingMethodVisitor(MethodVisitor delegate,
+                                  TransformationContext transformationContext,
+                                  SubmissionClassInfo submissionClassInfo,
+                                  MethodHeader methodHeader) {
+        super(delegate, transformationContext, submissionClassInfo, methodHeader, methodHeader);
 
         this.submissionExecutionHandlerIndex = nextLocalsIndex;
         this.methodHeaderIndex = nextLocalsIndex + 1;
@@ -52,9 +37,6 @@ class SubmissionMethodVisitor extends BaseMethodVisitor {
 
     @Override
     public void visitCode() {
-        Optional<MethodNode> solutionMethodNode = submissionClassInfo.getSolutionClass()
-            .map(solutionClassNode -> solutionClassNode.getMethods().get(computedMethodHeader));
-
         Label submissionExecutionHandlerVarLabel = new Label();
         Label methodHeaderVarLabel = new Label();
         Label substitutionCheckLabel = new Label();
@@ -111,7 +93,7 @@ class SubmissionMethodVisitor extends BaseMethodVisitor {
             delegate.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
             delegate.visitVarInsn(ALOAD, methodHeaderIndex);
             Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBSTITUTION.toMethodInsn(getDelegate(), false);
-            delegate.visitJumpInsn(IFEQ, solutionMethodNode.isPresent() ? delegationCheckLabel : submissionCodeLabel); // jump to label if useSubstitution(...) == false
+            delegate.visitJumpInsn(IFEQ, delegationCheckLabel); // jump to label if useSubstitution(...) == false
 
             // get substitution and execute it
             delegate.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
@@ -232,7 +214,7 @@ class SubmissionMethodVisitor extends BaseMethodVisitor {
 
         // Method delegation
         // if only default transformations are applied, skip delegation
-        if (solutionMethodNode.isPresent()) {
+        {
             // check if call should be delegated to solution or not
             fullFrameLocals.removeLast();
             delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
@@ -240,7 +222,7 @@ class SubmissionMethodVisitor extends BaseMethodVisitor {
             delegate.visitVarInsn(ALOAD, submissionExecutionHandlerIndex);
             delegate.visitVarInsn(ALOAD, methodHeaderIndex);
             Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBMISSION_IMPL.toMethodInsn(getDelegate(), false);
-            delegate.visitJumpInsn(IFNE, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == true
+            delegate.visitJumpInsn(IFEQ, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == false
 
             // replay instructions from solution
             delegate.visitFrame(F_CHOP, 2, null, 0, null);
@@ -259,37 +241,14 @@ class SubmissionMethodVisitor extends BaseMethodVisitor {
                 methodHeaderVarLabel,
                 delegationCodeLabel,
                 methodHeaderIndex);
-            solutionMethodNode.get().accept(getDelegate());
-
-            delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
-            delegate.visitLabel(submissionCodeLabel);
-        } else {
-            fullFrameLocals.removeLast();
-            fullFrameLocals.removeLast();
-            fullFrameLocals.removeLast();
-            delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
-            delegate.visitLabel(submissionCodeLabel);
-            delegate.visitLocalVariable("submissionExecutionHandler",
-                Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_TYPE.getDescriptor(),
-                null,
-                submissionExecutionHandlerVarLabel,
-                submissionCodeLabel,
-                submissionExecutionHandlerIndex);
-            delegate.visitLocalVariable("methodHeader",
-                computedMethodHeader.getType().getDescriptor(),
-                null,
-                methodHeaderVarLabel,
-                submissionCodeLabel,
-                methodHeaderIndex);
-        }
-
-        if (headerMismatch) {
-            new IncompatibleHeaderException("Method has incorrect return or parameter types", computedMethodHeader, originalMethodHeader)
+            new IncompatibleHeaderException("Method has incorrect return or parameter types", computedMethodHeader, null)
                 .replicateInBytecode(getDelegate(), true);
-        } else {
-            // visit original code
-            delegate.visitCode();
+
+            delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
+            delegate.visitLabel(submissionCodeLabel);
         }
+
+        delegate.visitCode();
     }
 
     @Override
@@ -327,26 +286,8 @@ class SubmissionMethodVisitor extends BaseMethodVisitor {
         MethodHeader methodHeader = new MethodHeader(owner, 0, name, descriptor, null, null);
         if (transformationContext.methodHasReplacement(methodHeader)) {
             transformationContext.getMethodReplacement(methodHeader).toMethodInsn(getDelegate(), false);
-        } else if (!transformationContext.isSubmissionClass(owner)) {
-            delegate.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-        } else if (owner.startsWith("[")) {  // stupid edge cases
-            delegate.visitMethodInsn(opcode,
-                transformationContext.toComputedType(owner).getInternalName(),
-                name,
-                transformationContext.toComputedType(descriptor).getDescriptor(),
-                isInterface);
         } else {
-            String computedOwner = transformationContext.toComputedType(owner).getInternalName();
-            methodHeader = transformationContext.getSubmissionClassInfo(owner).getComputedMethodHeader(name, descriptor);
-            if (TransformationUtils.opcodeIsCompatible(opcode, methodHeader.access())) {
-                delegate.visitMethodInsn(opcode, computedOwner, methodHeader.name(), methodHeader.descriptor(), isInterface);
-            } else {
-                delegate.visitMethodInsn(opcode,
-                    computedOwner,
-                    name + "$submission",
-                    transformationContext.toComputedType(descriptor).getDescriptor(),
-                    isInterface);
-            }
+            delegate.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
         }
     }
 

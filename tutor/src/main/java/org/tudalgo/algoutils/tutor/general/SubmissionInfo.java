@@ -15,7 +15,7 @@ public record SubmissionInfo(
 ) {
     public record SourceSet(String name, Map<String, List<String>> files) {}
 
-    public record DependencyConfiguration(List<String> implementation, List<String> testImplementation) {}
+    public record DependencyConfiguration(List<String> api, List<String> implementation, List<String> testImplementation) {}
 
     public record RepositoryConfiguration(String name, String url) {}
 }
