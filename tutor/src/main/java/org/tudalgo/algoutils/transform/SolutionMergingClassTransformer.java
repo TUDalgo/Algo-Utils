@@ -3,6 +3,7 @@ package org.tudalgo.algoutils.transform;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.sourcegrade.jagr.api.testing.extension.JagrExecutionCondition;
 import org.tudalgo.algoutils.student.annotation.ForceSignature;
+import org.tudalgo.algoutils.transform.classes.MissingClassVisitor;
 import org.tudalgo.algoutils.transform.util.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 import org.objectweb.asm.ClassReader;
@@ -144,6 +145,24 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
             transformationContext.setSubmissionClassLoader(null);
         }
         reader.accept(new SubmissionClassVisitor(writer, transformationContext, reader.getClassName()), 0);
+    }
+
+    @Override
+    public Map<String, byte[]> injectClasses() {
+        Set<String> visitedClasses = transformationContext.getVisitedClasses();
+        Map<String, byte[]> missingClasses = new HashMap<>();
+
+        transformationContext.getSolutionClasses()
+            .entrySet()
+            .stream()
+            .filter(entry -> !visitedClasses.contains(entry.getKey()))
+            .forEach(entry -> {
+                ClassWriter writer = new ClassWriter(0);
+                entry.getValue().accept(new MissingClassVisitor(writer));
+                missingClasses.put(entry.getKey(), writer.toByteArray());
+            });
+
+        return missingClasses;
     }
 
     /**

@@ -225,6 +225,7 @@ public class SubmissionClassVisitor extends ClassVisitor {
         injectFieldMetadata();
         injectMethodMetadata();
 
+        transformationContext.addVisitedClass(computedClassHeader.name());
         super.visitEnd();
     }
 

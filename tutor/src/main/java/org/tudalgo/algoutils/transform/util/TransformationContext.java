@@ -21,6 +21,7 @@ public final class TransformationContext {
     private final Map<SolutionMergingClassTransformer.Config, Object> configuration;
     private final Map<String, SolutionClassNode> solutionClasses;
     private final Map<String, SubmissionClassInfo> submissionClasses;
+    private final Set<String> visitedClasses = new HashSet<>();
 
     private ClassLoader submissionClassLoader;
     private Set<String> submissionClassNames;
@@ -101,6 +102,14 @@ public final class TransformationContext {
      */
     public void setSubmissionClassNames(Set<String> submissionClassNames) {
         this.submissionClassNames = submissionClassNames;
+    }
+
+    public void addVisitedClass(String className) {
+        visitedClasses.add(className);
+    }
+
+    public Set<String> getVisitedClasses() {
+        return Collections.unmodifiableSet(visitedClasses);
     }
 
     /**
@@ -192,6 +201,10 @@ public final class TransformationContext {
      */
     public SolutionClassNode getSolutionClass(String name) {
         return solutionClasses.get(name);
+    }
+
+    public Map<String, SolutionClassNode> getSolutionClasses() {
+        return Collections.unmodifiableMap(solutionClasses);
     }
 
     /**
