@@ -1,4 +1,4 @@
-package org.tudalgo.algoutils.transform;
+package org.tudalgo.algoutils.transform.classes;
 
 import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.FieldVisitor;

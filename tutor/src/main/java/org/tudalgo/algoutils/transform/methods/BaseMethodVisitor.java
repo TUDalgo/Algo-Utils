@@ -2,7 +2,7 @@ package org.tudalgo.algoutils.transform.methods;
 
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.MethodNode;
-import org.tudalgo.algoutils.transform.SubmissionClassInfo;
+import org.tudalgo.algoutils.transform.classes.ClassInfo;
 import org.tudalgo.algoutils.transform.util.*;
 
 import java.util.ArrayList;
@@ -20,7 +20,7 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
 
     protected final MethodVisitor delegate;
     protected final TransformationContext transformationContext;
-    protected final SubmissionClassInfo submissionClassInfo;
+    protected final ClassInfo classInfo;
     protected final MethodHeader originalMethodHeader;
     protected final MethodHeader computedMethodHeader;
 
@@ -33,13 +33,13 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
 
     protected BaseMethodVisitor(MethodVisitor delegate,
                                 TransformationContext transformationContext,
-                                SubmissionClassInfo submissionClassInfo,
+                                ClassInfo classInfo,
                                 MethodHeader originalMethodHeader,
                                 MethodHeader computedMethodHeader) {
         super(ASM9, delegate);
         this.delegate = delegate;
         this.transformationContext = transformationContext;
-        this.submissionClassInfo = submissionClassInfo;
+        this.classInfo = classInfo;
         this.originalMethodHeader = originalMethodHeader;
         this.computedMethodHeader = computedMethodHeader;
 
@@ -154,14 +154,14 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         delegate.visitLabel(substitutionStartLabel);
 
         if (isConstructor) {
-            List<MethodHeader> superConstructors = submissionClassInfo.getOriginalSuperClassConstructorHeaders()
+            List<MethodHeader> superConstructors = classInfo.getOriginalSuperClassConstructorHeaders()
                 .stream()
-                .map(mh -> submissionClassInfo.getComputedSuperClassConstructorHeader(mh.descriptor()))
+                .map(mh -> classInfo.getComputedSuperClassConstructorHeader(mh.descriptor()))
                 .toList();
-            List<MethodHeader> constructors = submissionClassInfo.getOriginalMethodHeaders()
+            List<MethodHeader> constructors = classInfo.getOriginalMethodHeaders()
                 .stream()
                 .filter(mh -> mh.name().equals("<init>"))
-                .map(mh -> submissionClassInfo.getComputedMethodHeader(mh.name(), mh.descriptor()))
+                .map(mh -> classInfo.getComputedMethodHeader(mh.name(), mh.descriptor()))
                 .filter(mh -> !mh.descriptor().equals(computedMethodHeader.descriptor()))
                 .toList();
             Label[] labels = Stream.generate(Label::new)

@@ -2,7 +2,7 @@ package org.tudalgo.algoutils.transform.methods;
 
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.tudalgo.algoutils.transform.SubmissionClassInfo;
+import org.tudalgo.algoutils.transform.classes.ClassInfo;
 import org.tudalgo.algoutils.transform.util.*;
 
 import java.util.EnumMap;
@@ -11,15 +11,15 @@ import java.util.Map;
 import static org.objectweb.asm.Opcodes.*;
 import static org.objectweb.asm.Opcodes.F_CHOP;
 
-public class InjectingMethodVisitor extends BaseMethodVisitor {
+public class MissingMethodVisitor extends BaseMethodVisitor {
 
     private final Map<LocalsObject, Integer> localsIndexes = new EnumMap<>(LocalsObject.class);
 
-    public InjectingMethodVisitor(MethodVisitor delegate,
-                                  TransformationContext transformationContext,
-                                  SubmissionClassInfo submissionClassInfo,
-                                  MethodHeader methodHeader) {
-        super(delegate, transformationContext, submissionClassInfo, methodHeader, methodHeader);
+    public MissingMethodVisitor(MethodVisitor delegate,
+                                TransformationContext transformationContext,
+                                ClassInfo classInfo,
+                                MethodHeader methodHeader) {
+        super(delegate, transformationContext, classInfo, methodHeader, methodHeader);
 
         localsIndexes.put(LocalsObject.SUBMISSION_EXECUTION_HANDLER, nextLocalsIndex);
         localsIndexes.put(LocalsObject.METHOD_HEADER, nextLocalsIndex + 1);
@@ -76,6 +76,11 @@ public class InjectingMethodVisitor extends BaseMethodVisitor {
         }
 
         delegate.visitCode();
+    }
+
+    @Override
+    public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+        delegate.visitFieldInsn(opcode, owner, name, descriptor);
     }
 
     @Override

@@ -2,9 +2,9 @@ package org.tudalgo.algoutils.transform.util;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
-import org.tudalgo.algoutils.transform.SolutionClassNode;
+import org.tudalgo.algoutils.transform.classes.SolutionClassNode;
 import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
-import org.tudalgo.algoutils.transform.SubmissionClassInfo;
+import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
 
 import java.io.IOException;
 import java.io.InputStream;

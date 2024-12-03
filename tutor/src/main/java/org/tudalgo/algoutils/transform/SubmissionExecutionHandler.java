@@ -1,5 +1,6 @@
 package org.tudalgo.algoutils.transform;
 
+import org.tudalgo.algoutils.transform.classes.SubmissionClassVisitor;
 import org.tudalgo.algoutils.transform.util.*;
 
 import java.lang.invoke.MethodHandles;

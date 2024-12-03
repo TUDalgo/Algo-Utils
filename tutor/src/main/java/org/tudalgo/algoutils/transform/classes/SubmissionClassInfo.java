@@ -1,15 +1,12 @@
-package org.tudalgo.algoutils.transform;
+package org.tudalgo.algoutils.transform.classes;
 
 import org.tudalgo.algoutils.transform.util.*;
-import kotlin.Triple;
 import org.objectweb.asm.*;
 
 import java.lang.reflect.Modifier;
 import java.util.*;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * A class that holds information on a submission class.
@@ -20,23 +17,13 @@ import java.util.stream.Stream;
  *
  * @author Daniel Mangold
  */
-public class SubmissionClassInfo extends ClassVisitor {
+public class SubmissionClassInfo extends ClassInfo {
 
-    private final TransformationContext transformationContext;
     private final ForceSignatureAnnotationProcessor fsAnnotationProcessor;
-    private final Set<Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>>> superClassMembers = new HashSet<>();
 
     private ClassHeader originalClassHeader;
     private ClassHeader computedClassHeader;
     private SolutionClassNode solutionClass;
-
-    // Mapping of fields in submission => usable fields
-    private final Map<FieldHeader, FieldHeader> fields = new HashMap<>();
-
-    // Mapping of methods in submission => usable methods
-    private final Map<MethodHeader, MethodHeader> methods = new HashMap<>();
-
-    private final Map<MethodHeader, MethodHeader> superClassConstructors = new HashMap<>();
 
     /**
      * Constructs a new {@link SubmissionClassInfo} instance.
@@ -46,8 +33,8 @@ public class SubmissionClassInfo extends ClassVisitor {
      */
     public SubmissionClassInfo(TransformationContext transformationContext,
                                ForceSignatureAnnotationProcessor fsAnnotationProcessor) {
-        super(Opcodes.ASM9);
-        this.transformationContext = transformationContext;
+        super(transformationContext);
+
         this.fsAnnotationProcessor = fsAnnotationProcessor;
     }
 
@@ -56,6 +43,7 @@ public class SubmissionClassInfo extends ClassVisitor {
      *
      * @return the original class header
      */
+    @Override
     public ClassHeader getOriginalClassHeader() {
         return originalClassHeader;
     }
@@ -67,6 +55,7 @@ public class SubmissionClassInfo extends ClassVisitor {
      *
      * @return the computed class name
      */
+    @Override
     public ClassHeader getComputedClassHeader() {
         return computedClassHeader;
     }
@@ -85,6 +74,7 @@ public class SubmissionClassInfo extends ClassVisitor {
      *
      * @return the original field headers
      */
+    @Override
     public Set<FieldHeader> getOriginalFieldHeaders() {
         return fields.keySet();
     }
@@ -99,6 +89,7 @@ public class SubmissionClassInfo extends ClassVisitor {
      * @param name the field name
      * @return the computed field header
      */
+    @Override
     public FieldHeader getComputedFieldHeader(String name) {
         return fields.entrySet()
             .stream()
@@ -113,6 +104,7 @@ public class SubmissionClassInfo extends ClassVisitor {
      *
      * @return the original method headers
      */
+    @Override
     public Set<MethodHeader> getOriginalMethodHeaders() {
         return methods.keySet();
     }
@@ -128,6 +120,7 @@ public class SubmissionClassInfo extends ClassVisitor {
      * @param descriptor the method descriptor
      * @return the computed method header
      */
+    @Override
     public MethodHeader getComputedMethodHeader(String name, String descriptor) {
         return methods.entrySet()
             .stream()
@@ -137,10 +130,12 @@ public class SubmissionClassInfo extends ClassVisitor {
             .orElseThrow();
     }
 
+    @Override
     public Set<MethodHeader> getOriginalSuperClassConstructorHeaders() {
         return superClassConstructors.keySet();
     }
 
+    @Override
     public MethodHeader getComputedSuperClassConstructorHeader(String descriptor) {
         return superClassConstructors.entrySet()
             .stream()
@@ -247,17 +242,17 @@ public class SubmissionClassInfo extends ClassVisitor {
             methods.put(submissionMethodHeader, solutionMethodHeader);
         }
 
-        resolveSuperClassMembers(superClassMembers, originalClassHeader.superName(), originalClassHeader.interfaces());
-        for (Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>> triple : superClassMembers) {
-            if (triple.getFirst().equals(originalClassHeader.superName())) {
-                triple.getThird()
+        resolveSuperTypeMembers(superTypeMembers, originalClassHeader.superName(), originalClassHeader.interfaces());
+        for (SuperTypeMembers superTypeMembers : superTypeMembers) {
+            if (superTypeMembers.typeName().equals(originalClassHeader.superName())) {
+                superTypeMembers.methods()
                     .entrySet()
                     .stream()
                     .filter(entry -> entry.getKey().name().equals("<init>"))
                     .forEach(entry -> superClassConstructors.put(entry.getKey(), entry.getValue()));
             }
-            triple.getSecond().forEach(fields::putIfAbsent);
-            triple.getThird()
+            superTypeMembers.fields().forEach(fields::putIfAbsent);
+            superTypeMembers.methods()
                 .entrySet()
                 .stream()
                 .filter(entry -> !entry.getKey().name().equals("<init>"))
@@ -266,38 +261,18 @@ public class SubmissionClassInfo extends ClassVisitor {
     }
 
     /**
-     * Recursively resolves the members of superclasses and interfaces.
-     *
-     * @param superClassMembers a set for recording class members
-     * @param superClass        the name of the superclass to process
-     * @param interfaces        the names of the interfaces to process
-     */
-    private void resolveSuperClassMembers(Set<Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>>> superClassMembers,
-                                          String superClass,
-                                          String[] interfaces) {
-        resolveSuperClassMembers(superClassMembers, superClass);
-        if (interfaces != null) {
-            for (String interfaceName : interfaces) {
-                resolveSuperClassMembers(superClassMembers, interfaceName);
-            }
-        }
-    }
-
-    /**
      * Recursively resolves the members of the given class.
      *
-     * @param superClassMembers a set for recording class members
-     * @param className         the name of the class / interface to process
+     * @param superTypeMembers  a set for recording class members
+     * @param typeName         the name of the class / interface to process
      */
-    private void resolveSuperClassMembers(Set<Triple<String, Map<FieldHeader, FieldHeader>, Map<MethodHeader, MethodHeader>>> superClassMembers,
-                                          String className) {
-        if (className == null) {
-            return;
-        }
+    @Override
+    protected void resolveSuperTypeMembers(Set<SuperTypeMembers> superTypeMembers, String typeName) {
+        if (typeName == null) return;
 
-        if (transformationContext.isSubmissionClass(className)) {
-            SubmissionClassInfo submissionClassInfo = transformationContext.getSubmissionClassInfo(className);
-            superClassMembers.add(new Triple<>(className,
+        if (transformationContext.isSubmissionClass(typeName)) {
+            SubmissionClassInfo submissionClassInfo = transformationContext.getSubmissionClassInfo(typeName);
+            superTypeMembers.add(new SuperTypeMembers(typeName,
                 submissionClassInfo.fields.entrySet()
                     .stream()
                     .filter(entry -> !Modifier.isPrivate(entry.getKey().access()))
@@ -306,31 +281,11 @@ public class SubmissionClassInfo extends ClassVisitor {
                     .stream()
                     .filter(entry -> !Modifier.isPrivate(entry.getKey().access()))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
-            resolveSuperClassMembers(superClassMembers,
+            resolveSuperTypeMembers(superTypeMembers,
                 submissionClassInfo.originalClassHeader.superName(),
                 submissionClassInfo.originalClassHeader.interfaces());
         } else {
-            try {
-                Class<?> clazz = Class.forName(className.replace('/', '.'));
-                Map<FieldHeader, FieldHeader> fieldHeaders = Arrays.stream(clazz.getDeclaredFields())
-                    .filter(field -> !Modifier.isPrivate(field.getModifiers()))
-                    .map(FieldHeader::new)
-                    .collect(Collectors.toMap(Function.identity(), Function.identity()));
-                Map<MethodHeader, MethodHeader> methodHeaders = Stream.concat(
-                        Arrays.stream(clazz.getDeclaredConstructors()),
-                        Arrays.stream(clazz.getDeclaredMethods()))
-                    .filter(executable -> !Modifier.isPrivate(executable.getModifiers()))
-                    .map(MethodHeader::new)
-                    .collect(Collectors.toMap(Function.identity(), Function.identity()));
-                superClassMembers.add(new Triple<>(className, fieldHeaders, methodHeaders));
-                if (clazz.getSuperclass() != null) {
-                    resolveSuperClassMembers(superClassMembers,
-                        Type.getInternalName(clazz.getSuperclass()),
-                        Arrays.stream(clazz.getInterfaces()).map(Type::getInternalName).toArray(String[]::new));
-                }
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            }
+            resolveExternalSuperTypeMembers(superTypeMembers, typeName, true);
         }
     }
 }

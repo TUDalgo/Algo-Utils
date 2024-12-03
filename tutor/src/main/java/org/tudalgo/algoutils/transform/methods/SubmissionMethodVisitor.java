@@ -2,8 +2,8 @@ package org.tudalgo.algoutils.transform.methods;
 
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.MethodNode;
-import org.tudalgo.algoutils.transform.SubmissionClassInfo;
-import org.tudalgo.algoutils.transform.SubmissionClassVisitor;
+import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
+import org.tudalgo.algoutils.transform.classes.SubmissionClassVisitor;
 import org.tudalgo.algoutils.transform.util.*;
 
 import java.util.*;
@@ -46,7 +46,7 @@ public class SubmissionMethodVisitor extends BaseMethodVisitor {
 
     @Override
     public void visitCode() {
-        Optional<MethodNode> solutionMethodNode = submissionClassInfo.getSolutionClass()
+        Optional<MethodNode> solutionMethodNode = ((SubmissionClassInfo) classInfo).getSolutionClass()
             .map(solutionClassNode -> solutionClassNode.getMethods().get(computedMethodHeader));
         Label submissionExecutionHandlerVarLabel = new Label();
         Label methodHeaderVarLabel = new Label();

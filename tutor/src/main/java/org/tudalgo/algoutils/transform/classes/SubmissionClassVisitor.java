@@ -1,7 +1,9 @@
-package org.tudalgo.algoutils.transform;
+package org.tudalgo.algoutils.transform.classes;
 
 import org.objectweb.asm.tree.MethodNode;
-import org.tudalgo.algoutils.transform.methods.InjectingMethodVisitor;
+import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
+import org.tudalgo.algoutils.transform.SubmissionExecutionHandler;
+import org.tudalgo.algoutils.transform.methods.MissingMethodVisitor;
 import org.tudalgo.algoutils.transform.methods.SubmissionMethodVisitor;
 import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.*;
@@ -111,7 +113,7 @@ public class SubmissionClassVisitor extends ClassVisitor {
     private final Set<FieldHeader> visitedFields = new HashSet<>();
     private final Set<MethodHeader> visitedMethods = new HashSet<>();
 
-    SubmissionClassVisitor(ClassVisitor classVisitor,
+    public SubmissionClassVisitor(ClassVisitor classVisitor,
                            TransformationContext transformationContext,
                            String submissionClassName) {
         super(ASM9, classVisitor);
@@ -216,7 +218,7 @@ public class SubmissionClassVisitor extends ClassVisitor {
                         methodNode.accept(getDelegate());
                     } else {
                         MethodVisitor mv = methodHeader.toMethodVisitor(getDelegate());
-                        methodNode.accept(new InjectingMethodVisitor(mv, transformationContext, submissionClassInfo, methodHeader));
+                        methodNode.accept(new MissingMethodVisitor(mv, transformationContext, submissionClassInfo, methodHeader));
                     }
                 });
         }
