@@ -234,21 +234,11 @@ public class SubmissionClassVisitor extends ClassVisitor {
      * This injected method returns the original class header of the class pre-transformation.
      */
     private void injectClassMetadata() {
-        Label startLabel = new Label();
-        Label endLabel = new Label();
         MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_CLASS_HEADER.toMethodVisitor(getDelegate());
 
-        mv.visitLabel(startLabel);
         int maxStack = originalClassHeader.buildHeader(mv);
         mv.visitInsn(ARETURN);
-        mv.visitLabel(endLabel);
-        mv.visitLocalVariable("this",
-            Type.getObjectType(computedClassHeader.name()).getDescriptor(),
-            null,
-            startLabel,
-            endLabel,
-            0);
-        mv.visitMaxs(maxStack, 1);
+        mv.visitMaxs(maxStack, 0);
     }
 
     /**
@@ -260,12 +250,9 @@ public class SubmissionClassVisitor extends ClassVisitor {
             .stream()
             .filter(fieldHeader -> (fieldHeader.access() & ACC_SYNTHETIC) == 0)
             .collect(Collectors.toSet());
-        Label startLabel = new Label();
-        Label endLabel = new Label();
         int maxStack, stackSize;
         MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_FIELD_HEADERS.toMethodVisitor(getDelegate());
 
-        mv.visitLabel(startLabel);
         mv.visitIntInsn(SIPUSH, fieldHeaders.size());
         mv.visitTypeInsn(ANEWARRAY, Type.getInternalName(Object.class));
         maxStack = stackSize = 1;
@@ -286,14 +273,7 @@ public class SubmissionClassVisitor extends ClassVisitor {
             Type.getMethodDescriptor(Constants.SET_TYPE, Type.getType(Object[].class)),
             true);
         mv.visitInsn(ARETURN);
-        mv.visitLabel(endLabel);
-        mv.visitLocalVariable("this",
-            Type.getObjectType(computedClassHeader.name()).getDescriptor(),
-            null,
-            startLabel,
-            endLabel,
-            0);
-        mv.visitMaxs(maxStack, 1);
+        mv.visitMaxs(maxStack, 0);
     }
 
     /**
@@ -305,12 +285,9 @@ public class SubmissionClassVisitor extends ClassVisitor {
             .stream()
             .filter(methodHeader -> (methodHeader.access() & ACC_SYNTHETIC) == 0)
             .collect(Collectors.toSet());
-        Label startLabel = new Label();
-        Label endLabel = new Label();
         int maxStack, stackSize;
         MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_METHODS_HEADERS.toMethodVisitor(getDelegate());
 
-        mv.visitLabel(startLabel);
         mv.visitIntInsn(SIPUSH, methodHeaders.size());
         mv.visitTypeInsn(ANEWARRAY, Type.getInternalName(Object.class));
         maxStack = stackSize = 1;
@@ -331,13 +308,6 @@ public class SubmissionClassVisitor extends ClassVisitor {
             Type.getMethodDescriptor(Constants.SET_TYPE, Type.getType(Object[].class)),
             true);
         mv.visitInsn(ARETURN);
-        mv.visitLabel(endLabel);
-        mv.visitLocalVariable("this",
-            Type.getObjectType(computedClassHeader.name()).getDescriptor(),
-            null,
-            startLabel,
-            endLabel,
-            0);
-        mv.visitMaxs(maxStack, 1);
+        mv.visitMaxs(maxStack, 0);
     }
 }
