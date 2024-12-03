@@ -2,6 +2,7 @@ package org.tudalgo.algoutils.transform;
 
 import org.objectweb.asm.tree.MethodNode;
 import org.tudalgo.algoutils.transform.methods.InjectingMethodVisitor;
+import org.tudalgo.algoutils.transform.methods.SubmissionMethodVisitor;
 import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.*;
 
@@ -100,7 +101,7 @@ import static org.objectweb.asm.Opcodes.*;
  * @see SubmissionExecutionHandler
  * @author Daniel Mangold
  */
-class SubmissionClassVisitor extends ClassVisitor {
+public class SubmissionClassVisitor extends ClassVisitor {
 
     private final TransformationContext transformationContext;
     private final SubmissionClassInfo submissionClassInfo;
@@ -162,15 +163,9 @@ class SubmissionClassVisitor extends ClassVisitor {
         } else {
             MethodHeader originalMethodHeader = new MethodHeader(originalClassHeader.name(), access, name, descriptor, signature, exceptions);
             MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
-            int[] originalParameterTypes = Arrays.stream(Type.getArgumentTypes(originalMethodHeader.descriptor()))
-                .mapToInt(Type::getSort)
-                .toArray();
-            int originalReturnType = Type.getReturnType(originalMethodHeader.descriptor()).getSort();
-            int[] computedParameterTypes = Arrays.stream(Type.getArgumentTypes(computedMethodHeader.descriptor()))
-                .mapToInt(Type::getSort)
-                .toArray();
-            int computedReturnType = Type.getReturnType(computedMethodHeader.descriptor()).getSort();
-            boolean headerMismatch = !(Arrays.equals(originalParameterTypes, computedParameterTypes) && originalReturnType == computedReturnType);
+            boolean headerMismatch = !transformationContext.toComputedType(originalMethodHeader.descriptor())
+                .getDescriptor()
+                .equals(computedMethodHeader.descriptor());
 
             if (!TransformationUtils.contextIsCompatible(access, computedMethodHeader.access()) || visitedMethods.contains(computedMethodHeader) || headerMismatch) {
                 computedMethodHeader = new MethodHeader(computedMethodHeader.owner(),
