@@ -9,11 +9,24 @@ import org.tudalgo.algoutils.transform.util.IncompatibleHeaderException;
 import org.tudalgo.algoutils.transform.util.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 
+/**
+ * A class visitor for visiting and transforming classes that are absent from the submission
+ * but present in the solution.
+ *
+ * @author Daniel Mangold
+ */
 public class MissingClassVisitor extends ClassVisitor {
 
     private final TransformationContext transformationContext;
     private final SolutionClassNode solutionClassNode;
 
+    /**
+     * Constructs a new {@link MissingClassVisitor} instance.
+     *
+     * @param delegate              the class visitor to delegate to
+     * @param transformationContext the transformation context
+     * @param solutionClassNode     the solution class
+     */
     public MissingClassVisitor(ClassVisitor delegate,
                                TransformationContext transformationContext,
                                SolutionClassNode solutionClassNode) {

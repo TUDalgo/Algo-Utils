@@ -10,10 +10,18 @@ import java.util.stream.Collectors;
 
 /**
  * A class that holds information on a submission class.
- * This class will attempt to find a corresponding solution class and map its members
- * to the ones defined in the solution class.
- * If no solution class can be found, for example because the submission class was added
- * as a utility class, it will map its members to itself to remain usable.
+ * <p>
+ *     This class will attempt to find a corresponding solution class and map its members
+ *     to the ones defined in the solution class.
+ *     If no solution class can be found, for example because the submission class was added
+ *     as a utility class, it will map its members to themselves to remain usable.
+ * </p>
+ * <p>
+ *     Note: Since this class resolves members of supertypes recursively, it may lead to a stack overflow
+ *     if it does so all in one step.
+ *     Therefore, members (both of this class and supertypes) are only fully resolved once
+ *     {@link #resolveMembers()} is called.
+ * </p>
  *
  * @author Daniel Mangold
  */
@@ -38,57 +46,21 @@ public class SubmissionClassInfo extends ClassInfo {
         this.fsAnnotationProcessor = fsAnnotationProcessor;
     }
 
-    /**
-     * Returns the original class header.
-     *
-     * @return the original class header
-     */
     @Override
     public ClassHeader getOriginalClassHeader() {
         return originalClassHeader;
     }
 
-    /**
-     * Returns the computed class name.
-     * The computed name is the name of the associated solution class, if one is present.
-     * If no solution class is present, the computed names equals the original submission class name.
-     *
-     * @return the computed class name
-     */
     @Override
     public ClassHeader getComputedClassHeader() {
         return computedClassHeader;
     }
 
-    /**
-     * Returns the solution class associated with this submission class.
-     *
-     * @return an {@link Optional} object wrapping the associated solution class
-     */
-    public Optional<SolutionClassNode> getSolutionClass() {
-        return Optional.ofNullable(solutionClass);
-    }
-
-    /**
-     * Returns the original field headers for this class.
-     *
-     * @return the original field headers
-     */
     @Override
     public Set<FieldHeader> getOriginalFieldHeaders() {
         return fields.keySet();
     }
 
-    /**
-     * Returns the computed field header for the given field name.
-     * The computed field header is the field header of the corresponding field in the solution class,
-     * if one is present.
-     * If no solution class is present, the computed field header equals the original field header
-     * in the submission class.
-     *
-     * @param name the field name
-     * @return the computed field header
-     */
     @Override
     public FieldHeader getComputedFieldHeader(String name) {
         return fields.entrySet()
@@ -99,27 +71,11 @@ public class SubmissionClassInfo extends ClassInfo {
             .orElseThrow();
     }
 
-    /**
-     * Return the original method headers for this class.
-     *
-     * @return the original method headers
-     */
     @Override
     public Set<MethodHeader> getOriginalMethodHeaders() {
         return methods.keySet();
     }
 
-    /**
-     * Returns the computed method header for the given method signature.
-     * The computed method header is the method header of the corresponding method in the solution class,
-     * if one is present.
-     * If no solution class is present, the computed method header equals the original method header
-     * in the submission class.
-     *
-     * @param name       the method name
-     * @param descriptor the method descriptor
-     * @return the computed method header
-     */
     @Override
     public MethodHeader getComputedMethodHeader(String name, String descriptor) {
         return methods.entrySet()
@@ -178,6 +134,19 @@ public class SubmissionClassInfo extends ClassInfo {
         return null;
     }
 
+    /**
+     * Returns the solution class associated with this submission class.
+     *
+     * @return an {@link Optional} object wrapping the associated solution class
+     */
+    public Optional<SolutionClassNode> getSolutionClass() {
+        return Optional.ofNullable(solutionClass);
+    }
+
+    /**
+     * Resolves the members of this submission class and all members from supertypes it inherits.
+     * This method <i>must</i> be called once to use this {@link SubmissionClassInfo} instance.
+     */
     public void resolveMembers() {
         SimilarityMapper<FieldHeader> fieldsSimilarityMapper = new SimilarityMapper<>(
             fields.keySet(),
@@ -260,12 +229,6 @@ public class SubmissionClassInfo extends ClassInfo {
         }
     }
 
-    /**
-     * Recursively resolves the members of the given class.
-     *
-     * @param superTypeMembers  a set for recording class members
-     * @param typeName         the name of the class / interface to process
-     */
     @Override
     protected void resolveSuperTypeMembers(Set<SuperTypeMembers> superTypeMembers, String typeName) {
         if (typeName == null) return;

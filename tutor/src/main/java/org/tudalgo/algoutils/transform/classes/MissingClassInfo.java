@@ -1,5 +1,6 @@
 package org.tudalgo.algoutils.transform.classes;
 
+import org.objectweb.asm.ClassVisitor;
 import org.tudalgo.algoutils.transform.util.ClassHeader;
 import org.tudalgo.algoutils.transform.util.FieldHeader;
 import org.tudalgo.algoutils.transform.util.MethodHeader;
@@ -11,10 +12,27 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Holds information about a class that is absent from the submission but present in the solution.
+ * <p>
+ *     Original and computed header methods return the same values since this class can only be
+ *     used with solution classes.
+ *     For the same reason, using {@link ClassVisitor} methods has no effect.
+ * </p>
+ *
+ * @author Daniel Mangold
+ */
 public class MissingClassInfo extends ClassInfo {
 
     private final SolutionClassNode solutionClassNode;
 
+    /**
+     * Constructs a new {@link MissingClassInfo} instance using the information stored
+     * in the given solution class.
+     *
+     * @param transformationContext the transformation context
+     * @param solutionClassNode     the solution class
+     */
     public MissingClassInfo(TransformationContext transformationContext, SolutionClassNode solutionClassNode) {
         super(transformationContext);
 

@@ -114,6 +114,13 @@ public class SubmissionClassVisitor extends ClassVisitor {
     private final Set<FieldHeader> visitedFields = new HashSet<>();
     private final Set<MethodHeader> visitedMethods = new HashSet<>();
 
+    /**
+     * Constructs a new {@link SubmissionClassVisitor} instance.
+     *
+     * @param classVisitor          the class visitor to delegate to
+     * @param transformationContext the transformation context
+     * @param submissionClassName   the name of the submission class that is visited
+     */
     public SubmissionClassVisitor(ClassVisitor classVisitor,
                                   TransformationContext transformationContext,
                                   String submissionClassName) {
@@ -157,7 +164,8 @@ public class SubmissionClassVisitor extends ClassVisitor {
 
     /**
      * Visits a method of a submission class and transforms it.
-     * Enables invocation logging, substitution and, if a solution class is present, delegation.
+     * Enables invocation logging, substitution and - if a solution class is present - delegation
+     * for non-lambda methods.
      */
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
