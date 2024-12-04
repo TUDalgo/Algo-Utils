@@ -2,14 +2,12 @@ package org.tudalgo.algoutils.transform.classes;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.tudalgo.algoutils.transform.methods.MissingMethodVisitor;
 import org.tudalgo.algoutils.transform.util.Constants;
+import org.tudalgo.algoutils.transform.util.IncompatibleHeaderException;
 import org.tudalgo.algoutils.transform.util.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
-
-import static org.objectweb.asm.Opcodes.ACONST_NULL;
-import static org.objectweb.asm.Opcodes.ARETURN;
-import static org.objectweb.asm.Opcodes.ASM9;
 
 public class MissingClassVisitor extends ClassVisitor {
 
@@ -19,7 +17,7 @@ public class MissingClassVisitor extends ClassVisitor {
     public MissingClassVisitor(ClassVisitor delegate,
                                TransformationContext transformationContext,
                                SolutionClassNode solutionClassNode) {
-        super(ASM9, delegate);
+        super(Opcodes.ASM9, delegate);
 
         this.transformationContext = transformationContext;
         this.solutionClassNode = solutionClassNode;
@@ -45,8 +43,8 @@ public class MissingClassVisitor extends ClassVisitor {
 
     private void injectMetadataMethod(MethodHeader methodHeader) {
         MethodVisitor mv = methodHeader.toMethodVisitor(getDelegate());
-        mv.visitInsn(ACONST_NULL);
-        mv.visitInsn(ARETURN);
-        mv.visitMaxs(1, 0);
+        int maxStack = IncompatibleHeaderException.replicateInBytecode(mv, true,
+            "Class does not exist in submission or could not be matched", solutionClassNode.getClassHeader(), null);
+        mv.visitMaxs(maxStack, 0);
     }
 }

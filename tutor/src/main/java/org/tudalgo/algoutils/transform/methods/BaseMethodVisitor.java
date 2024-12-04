@@ -3,6 +3,7 @@ package org.tudalgo.algoutils.transform.methods;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.MethodNode;
 import org.tudalgo.algoutils.transform.classes.ClassInfo;
+import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
 import org.tudalgo.algoutils.transform.util.*;
 
 import java.util.ArrayList;
@@ -43,9 +44,9 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         this.originalMethodHeader = originalMethodHeader;
         this.computedMethodHeader = computedMethodHeader;
 
-        this.headerMismatch = !transformationContext.toComputedType(originalMethodHeader.descriptor())
-            .getDescriptor()
-            .equals(computedMethodHeader.descriptor());
+        // Prevent bytecode to be added to the method if there is a header mismatch
+        this.headerMismatch = !transformationContext.descriptorIsCompatible(originalMethodHeader.descriptor(),
+            computedMethodHeader.descriptor());
         this.isStatic = (computedMethodHeader.access() & ACC_STATIC) != 0;
         this.isConstructor = computedMethodHeader.name().equals("<init>");
 
@@ -88,8 +89,8 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
             return descriptor;
         }
 
-        public void visitLocalVariable(BaseMethodVisitor mv, Label start, Label end) {
-            mv.visitLocalVariable(varName, descriptor, null, start, end, mv.getLocalsIndex(this));
+        public void visitLocalVariable(BaseMethodVisitor bmv, Label start, Label end) {
+            bmv.visitLocalVariable(varName, descriptor, null, start, end, bmv.getLocalsIndex(this));
         }
     }
 
@@ -380,8 +381,6 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
             getLocalsIndex(LocalsObject.CONSTRUCTOR_INVOCATION) + 1);
     }
 
-    // Prevent bytecode to be added to the method if there is a header mismatch
-
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
         if (headerMismatch) return;
@@ -390,21 +389,15 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         if (!transformationContext.isSubmissionClass(owner)) {
             delegate.visitFieldInsn(opcode, owner, name, descriptor);
         } else {
-            if (owner.startsWith("[")) {  // stupid edge cases
+            FieldHeader computedFieldHeader = transformationContext.getSubmissionClassInfo(owner).getComputedFieldHeader(name);
+            if (TransformationUtils.opcodeIsCompatible(opcode, computedFieldHeader.access()) &&
+                transformationContext.descriptorIsCompatible(descriptor, computedFieldHeader.descriptor())) {
                 delegate.visitFieldInsn(opcode,
-                    transformationContext.toComputedType(owner).getInternalName(),
-                    name,
-                    transformationContext.toComputedType(descriptor).getDescriptor());
-            } else {
-                FieldHeader computedFieldHeader = transformationContext.getSubmissionClassInfo(owner).getComputedFieldHeader(name);
-                if (TransformationUtils.opcodeIsCompatible(opcode, computedFieldHeader.access())) {
-                    delegate.visitFieldInsn(opcode,
-                        transformationContext.toComputedType(computedFieldHeader.owner()).getInternalName(),
-                        computedFieldHeader.name(),
-                        computedFieldHeader.descriptor());
-                } else { // if incompatible
-                    delegate.visitFieldInsn(opcode, computedFieldHeader.owner(), name + "$submission", computedFieldHeader.descriptor());
-                }
+                    transformationContext.toComputedInternalName(computedFieldHeader.owner()),
+                    computedFieldHeader.name(),
+                    computedFieldHeader.descriptor());
+            } else { // if incompatible
+                delegate.visitFieldInsn(opcode, computedFieldHeader.owner(), name + "$submission", computedFieldHeader.descriptor());
             }
         }
     }
@@ -413,28 +406,25 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
         if (headerMismatch) return;
 
-        // skip transformation if owner is not part of the submission
-        MethodHeader methodHeader = new MethodHeader(owner, 0, name, descriptor, null, null);
+        MethodHeader methodHeader = new MethodHeader(owner, name, descriptor);
         if (transformationContext.methodHasReplacement(methodHeader)) {
             transformationContext.getMethodReplacement(methodHeader).toMethodInsn(delegate, false);
         } else if (!transformationContext.isSubmissionClass(owner)) {
             delegate.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-        } else if (owner.startsWith("[")) {  // stupid edge cases
-            delegate.visitMethodInsn(opcode,
-                transformationContext.toComputedType(owner).getInternalName(),
-                name,
-                transformationContext.toComputedType(descriptor).getDescriptor(),
-                isInterface);
+        } else if (owner.startsWith("[")) {
+            delegate.visitMethodInsn(opcode, transformationContext.toComputedInternalName(owner), name, descriptor, isInterface);
         } else {
-            String computedOwner = transformationContext.toComputedType(owner).getInternalName();
+            // methodHeader.owner() might have the wrong owner for inherited methods
+            String computedOwner = transformationContext.toComputedInternalName(owner);
             methodHeader = transformationContext.getSubmissionClassInfo(owner).getComputedMethodHeader(name, descriptor);
-            if (TransformationUtils.opcodeIsCompatible(opcode, methodHeader.access())) {
+            if (TransformationUtils.opcodeIsCompatible(opcode, methodHeader.access()) &&
+                transformationContext.descriptorIsCompatible(descriptor, methodHeader.descriptor())) {
                 delegate.visitMethodInsn(opcode, computedOwner, methodHeader.name(), methodHeader.descriptor(), isInterface);
             } else {
                 delegate.visitMethodInsn(opcode,
                     computedOwner,
                     name + "$submission",
-                    transformationContext.toComputedType(descriptor).getDescriptor(),
+                    transformationContext.toComputedDescriptor(descriptor),
                     isInterface);
             }
         }
@@ -451,90 +441,132 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
     public void visitTypeInsn(int opcode, String type) {
         if (headerMismatch) return;
 
-        super.visitTypeInsn(opcode, transformationContext.toComputedType(type).getInternalName());
+        super.visitTypeInsn(opcode, transformationContext.toComputedInternalName(type));
     }
 
     @Override
     public void visitFrame(int type, int numLocal, Object[] local, int numStack, Object[] stack) {
-        if (!headerMismatch) {
-            Object[] computedLocals = local == null ? null : Arrays.stream(local)
-                .map(o -> o instanceof String s ? transformationContext.toComputedType(s).getInternalName() : o)
-                .toArray();
-            Object[] computedStack = stack == null ? null : Arrays.stream(stack)
-                .map(o -> o instanceof String s ? transformationContext.toComputedType(s).getInternalName() : o)
-                .toArray();
-            super.visitFrame(type, numLocal, computedLocals, numStack, computedStack);
-        }
+        if (headerMismatch) return;
+
+        Object[] computedLocals = local == null ? null : Arrays.stream(local)
+            .map(o -> o instanceof String s ? transformationContext.toComputedInternalName(s) : o)
+            .toArray();
+        Object[] computedStack = stack == null ? null : Arrays.stream(stack)
+            .map(o -> o instanceof String s ? transformationContext.toComputedInternalName(s) : o)
+            .toArray();
+        super.visitFrame(type, numLocal, computedLocals, numStack, computedStack);
     }
 
     @Override
     public void visitInsn(int opcode) {
-        if (!headerMismatch) {
-            super.visitInsn(opcode);
-        }
+        if (headerMismatch) return;
+
+        super.visitInsn(opcode);
     }
 
     @Override
     public void visitIntInsn(int opcode, int operand) {
-        if (!headerMismatch) {
-            super.visitIntInsn(opcode, operand);
-        }
+        if (headerMismatch) return;
+
+        super.visitIntInsn(opcode, operand);
     }
 
     @Override
     public void visitIincInsn(int varIndex, int increment) {
-        if (!headerMismatch) {
-            super.visitIincInsn(varIndex, increment);
-        }
+        if (headerMismatch) return;
+
+        super.visitIincInsn(varIndex, increment);
     }
 
     @Override
     public void visitVarInsn(int opcode, int varIndex) {
-        if (!headerMismatch) {
-            super.visitVarInsn(opcode, varIndex);
-        }
+        if (headerMismatch) return;
+
+        super.visitVarInsn(opcode, varIndex);
     }
 
     @Override
     public void visitJumpInsn(int opcode, Label label) {
-        if (!headerMismatch) {
-            super.visitJumpInsn(opcode, label);
-        }
+        if (headerMismatch) return;
+
+        super.visitJumpInsn(opcode, label);
     }
 
     @Override
     public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
         if (headerMismatch) return;
 
-        super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
+        if (bootstrapMethodHandle.getOwner().equals("java/lang/invoke/LambdaMetafactory") &&
+            bootstrapMethodHandle.getName().equals("metafactory")) {
+            /*
+             * Since this stuff is very confusing, some explanations...
+             * name: the name of the interface method to implement
+             * descriptor:
+             *   arg types: types of the capture variables, i.e., variables that are used in the lambda expression
+             *              but are not declared therein
+             *   return type: the owner of the method that is implemented
+             * bootstrapMethodHandle: a method handle for the lambda metafactory, see docs on LambdaMetafactory
+             * bootstrapMethodArguments[0]: descriptor for the interface method that is implemented
+             * bootstrapMethodArguments[1]: a method handle for the actual implementation, i.e.,
+             *                              the actual lambda method or some other method when using method references
+             * bootstrapMethodArguments[2]: the descriptor that should be enforced at invocation time,
+             *                              not sure if it includes the capture variables
+             */
+
+            String interfaceOwner = Type.getReturnType(descriptor).getInternalName();
+            if (transformationContext.isSubmissionClass(interfaceOwner)) {
+                SubmissionClassInfo submissionClassInfo = transformationContext.getSubmissionClassInfo(interfaceOwner);
+                MethodHeader methodHeader = submissionClassInfo.getComputedMethodHeader(name, ((Type) bootstrapMethodArguments[0]).getDescriptor());
+                name = methodHeader.name();
+                bootstrapMethodArguments[0] = Type.getMethodType(methodHeader.descriptor());
+            }
+
+            Handle implementation = (Handle) bootstrapMethodArguments[1];
+            if (transformationContext.isSubmissionClass(implementation.getOwner())) {
+                SubmissionClassInfo submissionClassInfo = transformationContext.getSubmissionClassInfo(implementation.getOwner());
+                MethodHeader methodHeader = submissionClassInfo.getComputedMethodHeader(implementation.getName(), implementation.getDesc());
+                bootstrapMethodArguments[1] = new Handle(implementation.getTag(),
+                    methodHeader.owner(),
+                    methodHeader.name(),
+                    methodHeader.descriptor(),
+                    implementation.isInterface());
+            }
+
+            bootstrapMethodArguments[2] = transformationContext.toComputedType((Type) bootstrapMethodArguments[2]);
+        }
+
+        super.visitInvokeDynamicInsn(name,
+            transformationContext.toComputedDescriptor(descriptor),
+            bootstrapMethodHandle,
+            bootstrapMethodArguments);
     }
 
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
-        if (!headerMismatch) {
-            super.visitLookupSwitchInsn(dflt, keys, labels);
-        }
+        if (headerMismatch) return;
+
+        super.visitLookupSwitchInsn(dflt, keys, labels);
     }
 
     @Override
     public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
-        if (!headerMismatch) {
-            super.visitTableSwitchInsn(min, max, dflt, labels);
-        }
+        if (headerMismatch) return;
+
+        super.visitTableSwitchInsn(min, max, dflt, labels);
     }
 
     @Override
     public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
         if (headerMismatch) return;
 
-        super.visitMultiANewArrayInsn(transformationContext.toComputedType(descriptor).getDescriptor(), numDimensions);
+        super.visitMultiANewArrayInsn(transformationContext.toComputedDescriptor(descriptor), numDimensions);
     }
 
     @Override
     public void visitLabel(Label label) {
-        if (!headerMismatch) {
-            super.visitLabel(label);
-        }
+        if (headerMismatch) return;
+
+        super.visitLabel(label);
     }
 
     @Override
@@ -546,7 +578,7 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
     public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
         if (headerMismatch) return;
 
-        super.visitTryCatchBlock(start, end, handler, type != null ? transformationContext.toComputedType(type).getInternalName() : null);
+        super.visitTryCatchBlock(start, end, handler, type != null ? transformationContext.toComputedInternalName(type) : null);
     }
 
     @Override
@@ -569,15 +601,15 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitLineNumber(int line, Label start) {
-        if (!headerMismatch) {
-            super.visitLineNumber(line, start);
-        }
+        if (headerMismatch) return;
+
+        super.visitLineNumber(line, start);
     }
 
     @Override
     public void visitAttribute(Attribute attribute) {
-        if (!headerMismatch) {
-            super.visitAttribute(attribute);
-        }
+        if (headerMismatch) return;
+
+        super.visitAttribute(attribute);
     }
 }

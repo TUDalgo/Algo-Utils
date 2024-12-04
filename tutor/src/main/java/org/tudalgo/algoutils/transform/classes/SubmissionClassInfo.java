@@ -178,7 +178,7 @@ public class SubmissionClassInfo extends ClassInfo {
         return null;
     }
 
-    public void computeMembers() {
+    public void resolveMembers() {
         SimilarityMapper<FieldHeader> fieldsSimilarityMapper = new SimilarityMapper<>(
             fields.keySet(),
             getSolutionClass().map(solutionClass -> solutionClass.getFields().keySet()).orElseGet(Collections::emptySet),
@@ -221,7 +221,7 @@ public class SubmissionClassInfo extends ClassInfo {
             Supplier<MethodHeader> fallbackMethodHeader = () -> new MethodHeader(computedClassHeader.name(),
                 submissionMethodHeader.access(),
                 submissionMethodHeader.name(),
-                transformationContext.toComputedType(submissionMethodHeader.descriptor()).getDescriptor(),
+                transformationContext.toComputedDescriptor(submissionMethodHeader.descriptor()),
                 submissionMethodHeader.signature(),
                 submissionMethodHeader.exceptions());
             MethodHeader solutionMethodHeader;

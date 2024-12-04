@@ -100,7 +100,7 @@ public class SolutionClassNode extends ClassNode {
         return new MethodNode(ASM9, TransformationUtils.transformAccess(access), name, descriptor, signature, exceptions) {
             @Override
             public void visitMethodInsn(int opcodeAndSource, String owner, String name, String descriptor, boolean isInterface) {
-                MethodHeader methodHeader = new MethodHeader(owner, 0, name, descriptor, null, null);
+                MethodHeader methodHeader = new MethodHeader(owner, name, descriptor);
                 if (transformationContext.methodHasReplacement(methodHeader)) {
                     MethodHeader replacementMethodHeader = transformationContext.getMethodReplacement(methodHeader);
                     super.visitMethodInsn(INVOKESTATIC,

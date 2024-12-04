@@ -30,6 +30,19 @@ import static org.objectweb.asm.Opcodes.*;
 public record MethodHeader(String owner, int access, String name, String descriptor, String signature, String[] exceptions) implements Header {
 
     /**
+     * Constructs a new method header with reduced information.
+     * This method header should not invoke {@link #toMethodVisitor(ClassVisitor)},
+     * {@link #toMethodInsn(MethodVisitor, boolean)} or {@link #getOpcode()}.
+     *
+     * @param owner      the method's owner or declaring class
+     * @param name       the method's name
+     * @param descriptor the method's descriptor / parameter types + return type
+     */
+    public MethodHeader(String owner, String name, String descriptor) {
+        this(owner, 0, name, descriptor, null, null);
+    }
+
+    /**
      * Constructs a new method header using the given method / constructor.
      *
      * @param executable a java reflection method or constructor

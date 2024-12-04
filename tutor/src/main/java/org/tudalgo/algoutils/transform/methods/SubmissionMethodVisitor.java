@@ -76,8 +76,8 @@ public class SubmissionMethodVisitor extends BaseMethodVisitor {
         }
 
         if (headerMismatch) {
-            new IncompatibleHeaderException("Method has incorrect return or parameter types", computedMethodHeader, originalMethodHeader)
-                .replicateInBytecode(getDelegate(), true);
+            IncompatibleHeaderException.replicateInBytecode(delegate, true,
+                "Method has incorrect return or parameter types", computedMethodHeader, originalMethodHeader);
         } else {
             // visit original code
             delegate.visitCode();

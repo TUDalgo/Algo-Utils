@@ -3,6 +3,7 @@ package org.tudalgo.algoutils.transform.classes;
 import org.objectweb.asm.tree.MethodNode;
 import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
 import org.tudalgo.algoutils.transform.SubmissionExecutionHandler;
+import org.tudalgo.algoutils.transform.methods.LambdaMethodVisitor;
 import org.tudalgo.algoutils.transform.methods.MissingMethodVisitor;
 import org.tudalgo.algoutils.transform.methods.SubmissionMethodVisitor;
 import org.tudalgo.algoutils.transform.util.*;
@@ -114,8 +115,8 @@ public class SubmissionClassVisitor extends ClassVisitor {
     private final Set<MethodHeader> visitedMethods = new HashSet<>();
 
     public SubmissionClassVisitor(ClassVisitor classVisitor,
-                           TransformationContext transformationContext,
-                           String submissionClassName) {
+                                  TransformationContext transformationContext,
+                                  String submissionClassName) {
         super(ASM9, classVisitor);
         this.transformationContext = transformationContext;
         this.submissionClassInfo = transformationContext.getSubmissionClassInfo(submissionClassName);
@@ -141,15 +142,16 @@ public class SubmissionClassVisitor extends ClassVisitor {
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
         FieldHeader fieldHeader = submissionClassInfo.getComputedFieldHeader(name);
 
-        if (!TransformationUtils.contextIsCompatible(access, fieldHeader.access()) || visitedFields.contains(fieldHeader)) {
-            return super.visitField(TransformationUtils.transformAccess(access),
-                name + "$submission",
-                fieldHeader.descriptor(),
-                fieldHeader.signature(),
-                value);
-        } else {
+        if (TransformationUtils.contextIsCompatible(access, fieldHeader.access()) &&
+            transformationContext.descriptorIsCompatible(descriptor, fieldHeader.descriptor())) {
             visitedFields.add(fieldHeader);
             return fieldHeader.toFieldVisitor(getDelegate(), value);
+        } else {
+            return super.visitField(TransformationUtils.transformAccess(access),
+                name + "$submission",
+                transformationContext.toComputedDescriptor(descriptor),
+                signature,
+                value);
         }
     }
 
@@ -159,25 +161,31 @@ public class SubmissionClassVisitor extends ClassVisitor {
      */
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-        // if method is lambda, skip transformation
         if (TransformationUtils.isLambdaMethod(access, name)) {
-            return super.visitMethod(access, name, descriptor, signature, exceptions);
+            MethodHeader methodHeader = new MethodHeader(originalClassHeader.name(),
+                access,
+                name,
+                transformationContext.toComputedDescriptor(descriptor),
+                signature,
+                exceptions);
+            return new LambdaMethodVisitor(methodHeader.toMethodVisitor(getDelegate()),
+                transformationContext,
+                submissionClassInfo,
+                methodHeader);
         } else {
             MethodHeader originalMethodHeader = new MethodHeader(originalClassHeader.name(), access, name, descriptor, signature, exceptions);
             MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
-            boolean headerMismatch = !transformationContext.toComputedType(originalMethodHeader.descriptor())
-                .getDescriptor()
-                .equals(computedMethodHeader.descriptor());
 
-            if (!TransformationUtils.contextIsCompatible(access, computedMethodHeader.access()) || visitedMethods.contains(computedMethodHeader) || headerMismatch) {
+            if (TransformationUtils.contextIsCompatible(access, computedMethodHeader.access()) &&
+                transformationContext.descriptorIsCompatible(descriptor, computedMethodHeader.descriptor())) {
+                visitedMethods.add(computedMethodHeader);
+            } else {
                 computedMethodHeader = new MethodHeader(computedMethodHeader.owner(),
                     access,
                     name + "$submission",
-                    transformationContext.toComputedType(descriptor).getDescriptor(),
+                    transformationContext.toComputedDescriptor(descriptor),
                     signature,
                     exceptions);
-            } else {
-                visitedMethods.add(computedMethodHeader);
             }
             return new SubmissionMethodVisitor(computedMethodHeader.toMethodVisitor(getDelegate()),
                 transformationContext,

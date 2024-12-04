@@ -98,8 +98,10 @@ public class SubmissionExecutionHandler {
             return (ClassHeader) MethodHandles.lookup()
                 .findStatic(clazz, Constants.INJECTED_GET_ORIGINAL_CLASS_HEADER.name(), MethodType.methodType(ClassHeader.class))
                 .invokeExact();
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
         }
     }
 
@@ -115,8 +117,10 @@ public class SubmissionExecutionHandler {
             return (Set<FieldHeader>) MethodHandles.lookup()
                 .findStatic(clazz, Constants.INJECTED_GET_ORIGINAL_FIELD_HEADERS.name(), MethodType.methodType(Set.class))
                 .invokeExact();
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
         }
     }
 
@@ -132,8 +136,10 @@ public class SubmissionExecutionHandler {
             return (Set<MethodHeader>) MethodHandles.lookup()
                 .findStatic(clazz, Constants.INJECTED_GET_ORIGINAL_METHODS_HEADERS.name(), MethodType.methodType(Set.class))
                 .invokeExact();
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
         }
     }
 

@@ -54,12 +54,15 @@ public class IncompatibleHeaderException extends RuntimeException {
      *
      * @param mv             the method visitor to use
      * @param throwException whether the exception should be thrown
+     * @param message        the exception message
+     * @param expected       the expected header
+     * @param actual         the actual header, may be null
      * @return the maximum stack size used
      */
-    public int replicateInBytecode(MethodVisitor mv, boolean throwException) {
+    public static int replicateInBytecode(MethodVisitor mv, boolean throwException, String message, Header expected, Header actual) {
         int maxStack, stackSize;
 
-        mv.visitTypeInsn(NEW, Type.getInternalName(getClass()));
+        mv.visitTypeInsn(NEW, Type.getInternalName(IncompatibleHeaderException.class));
         mv.visitInsn(DUP);
         mv.visitLdcInsn(message);
         maxStack = stackSize = 3;
@@ -71,7 +74,7 @@ public class IncompatibleHeaderException extends RuntimeException {
             maxStack = Math.max(maxStack, ++stackSize);
         }
         mv.visitMethodInsn(INVOKESPECIAL,
-            Type.getInternalName(getClass()),
+            Type.getInternalName(IncompatibleHeaderException.class),
             "<init>",
             Type.getMethodDescriptor(Type.VOID_TYPE, Constants.STRING_TYPE, Constants.HEADER_TYPE, Constants.HEADER_TYPE),
             false);

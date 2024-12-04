@@ -51,30 +51,26 @@ public class MissingMethodVisitor extends BaseMethodVisitor {
         injectSubstitutionCode(substitutionCheckLabel, delegationCheckLabel);
 
         // Method delegation
-        // if only default transformations are applied, skip delegation
-        {
-            // check if call should be delegated to solution or not
-            delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
-            delegate.visitLabel(delegationCheckLabel);
-            delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
-            delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
-            Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBMISSION_IMPL.toMethodInsn(getDelegate(), false);
-            delegate.visitJumpInsn(IFEQ, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == false
+        // check if call should be delegated to solution or not
+        delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
+        delegate.visitLabel(delegationCheckLabel);
+        delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
+        delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
+        Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBMISSION_IMPL.toMethodInsn(getDelegate(), false);
+        delegate.visitJumpInsn(IFEQ, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == false
 
-            // replay instructions from solution
-            delegate.visitFrame(F_CHOP, 2, null, 0, null);
-            fullFrameLocals.removeLast();
-            fullFrameLocals.removeLast();
-            delegate.visitLabel(delegationCodeLabel);
-            LocalsObject.SUBMISSION_EXECUTION_HANDLER.visitLocalVariable(this, submissionExecutionHandlerVarLabel, delegationCodeLabel);
-            LocalsObject.METHOD_HEADER.visitLocalVariable(this, methodHeaderVarLabel, delegationCodeLabel);
-            new IncompatibleHeaderException("Method has incorrect return or parameter types", computedMethodHeader, null)
-                .replicateInBytecode(getDelegate(), true);
+        // replay instructions from solution
+        delegate.visitFrame(F_CHOP, 2, null, 0, null);
+        fullFrameLocals.removeLast();
+        fullFrameLocals.removeLast();
+        delegate.visitLabel(delegationCodeLabel);
+        LocalsObject.SUBMISSION_EXECUTION_HANDLER.visitLocalVariable(this, submissionExecutionHandlerVarLabel, delegationCodeLabel);
+        LocalsObject.METHOD_HEADER.visitLocalVariable(this, methodHeaderVarLabel, delegationCodeLabel);
+        IncompatibleHeaderException.replicateInBytecode(delegate, true,
+            "Method has incorrect return or parameter types", computedMethodHeader, null);
 
-            delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
-            delegate.visitLabel(submissionCodeLabel);
-        }
-
+        delegate.visitFrame(F_SAME, 0, null, 0, null);
+        delegate.visitLabel(submissionCodeLabel);
         delegate.visitCode();
     }
 
@@ -85,10 +81,7 @@ public class MissingMethodVisitor extends BaseMethodVisitor {
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-        if (headerMismatch) return;
-
-        // skip transformation if owner is not part of the submission
-        MethodHeader methodHeader = new MethodHeader(owner, 0, name, descriptor, null, null);
+        MethodHeader methodHeader = new MethodHeader(owner, name, descriptor);
         if (transformationContext.methodHasReplacement(methodHeader)) {
             transformationContext.getMethodReplacement(methodHeader).toMethodInsn(getDelegate(), false);
         } else {

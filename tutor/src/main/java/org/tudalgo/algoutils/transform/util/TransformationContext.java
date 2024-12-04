@@ -151,7 +151,7 @@ public final class TransformationContext {
         boolean isAbsent = !submissionClasses.containsKey(submissionClassName);
         SubmissionClassInfo submissionClassInfo = submissionClasses.computeIfAbsent(submissionClassName, this::readSubmissionClass);
         if (isAbsent && submissionClassInfo != null) {
-            submissionClassInfo.computeMembers();
+            submissionClassInfo.resolveMembers();
         }
         return submissionClassInfo;
     }
@@ -209,32 +209,6 @@ public final class TransformationContext {
 
     /**
      * Returns the computed (i.e., mapped from submission to solution) type.
-     * The given value may be an internal class name or a descriptor.
-     * If the value is a method descriptor, this method will return a descriptor where
-     * all parameter types and the return types have been computed.
-     * If the value is an array descriptor, it will return a descriptor where
-     * the component type has been computed.
-     * If the given internal class name or descriptor are not part of the submission
-     * or no corresponding solution class exists, it will return a {@link Type} object
-     * representing the original name / descriptor.
-     *
-     * @param descriptor the class name or descriptor
-     * @return the computed type
-     */
-    public Type toComputedType(String descriptor) {
-        if (descriptor.startsWith("(")) {  // method descriptor
-            return toComputedType(Type.getMethodType(descriptor));
-        } else if (descriptor.startsWith("[") || descriptor.endsWith(";")) {  // array or reference descriptor
-            return toComputedType(Type.getType(descriptor));
-        } else if (descriptor.length() == 1 && "VZBSCIFJD".contains(descriptor)) {  // primitive type
-            return Type.getType(descriptor);
-        } else {
-            return toComputedType(Type.getObjectType(descriptor));
-        }
-    }
-
-    /**
-     * Returns the computed (i.e., mapped from submission to solution) type.
      * If the given value represents a method descriptor, this method will return a type with
      * a descriptor where all parameter types and the return types have been computed.
      * If the value represents an array, it will return a type where the component type has been computed.
@@ -258,6 +232,40 @@ public final class TransformationContext {
         } else {
             return type;
         }
+    }
+
+    /**
+     * Returns the computed internal name.
+     * Convenience method for {@code toComputedType(Type.getObjectType(name)).getInternalName()}.
+     *
+     * @param name the type name
+     * @return the computed internal name
+     */
+    public String toComputedInternalName(String name) {
+        return toComputedType(Type.getObjectType(name)).getInternalName();
+    }
+
+    /**
+     * Returns the computed descriptor.
+     * Convenience method for {@code toComputedType(Type.getType(descriptor)).getDescriptor()}.
+     *
+     * @param descriptor the descriptor
+     * @return the computed descriptor
+     */
+    public String toComputedDescriptor(String descriptor) {
+        return toComputedType(Type.getType(descriptor)).getDescriptor();
+    }
+
+    /**
+     * Whether the two given descriptors have the same argument and return types when computed.
+     * Convenience method for {@code toComputedDescriptor(descriptor).equals(computedDescriptor)}.
+     *
+     * @param descriptor         the descriptor to compare
+     * @param computedDescriptor the computed descriptor to compare against
+     * @return true, if the descriptors are compatible, otherwise false
+     */
+    public boolean descriptorIsCompatible(String descriptor, String computedDescriptor) {
+        return toComputedDescriptor(descriptor).equals(computedDescriptor);
     }
 
     /**
