@@ -205,7 +205,7 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
 
         @SuppressWarnings("unchecked")
         public Builder addSolutionClass(String solutionClassName, String... altNames) {
-            ((Map<String, List<String>>) configuration.get(Config.SOLUTION_CLASSES)).put(
+            ((Map<String, Collection<String>>) configuration.get(Config.SOLUTION_CLASSES)).put(
                 solutionClassName.replace('.', '/'),
                 Arrays.stream(altNames).map(s -> s.replace('.', '/')).toList()
             );

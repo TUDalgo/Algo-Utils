@@ -2,6 +2,8 @@ package org.tudalgo.algoutils.transform.classes;
 
 import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.*;
+import org.tudalgo.algoutils.transform.util.matching.FieldSimilarityMapper;
+import org.tudalgo.algoutils.transform.util.matching.MethodSimilarityMapper;
 
 import java.lang.reflect.Modifier;
 import java.util.*;
@@ -148,11 +150,10 @@ public class SubmissionClassInfo extends ClassInfo {
      * This method <i>must</i> be called once to use this {@link SubmissionClassInfo} instance.
      */
     public void resolveMembers() {
-        SimilarityMapper<FieldHeader> fieldsSimilarityMapper = new SimilarityMapper<>(
+        FieldSimilarityMapper fieldsSimilarityMapper = new FieldSimilarityMapper(
             fields.keySet(),
             getSolutionClass().map(solutionClass -> solutionClass.getFields().keySet()).orElseGet(Collections::emptySet),
-            transformationContext.getSimilarity(),
-            FieldHeader::name
+            transformationContext
         );
         for (FieldHeader submissionFieldHeader : fields.keySet()) {
             Supplier<FieldHeader> fallbackFieldHeader = () -> new FieldHeader(computedClassHeader.name(),
@@ -178,11 +179,10 @@ public class SubmissionClassInfo extends ClassInfo {
             fields.put(submissionFieldHeader, solutionFieldHeader);
         }
 
-        SimilarityMapper<MethodHeader> methodsSimilarityMapper = new SimilarityMapper<>(
+        MethodSimilarityMapper methodsSimilarityMapper = new MethodSimilarityMapper(
             methods.keySet(),
             getSolutionClass().map(solutionClass -> solutionClass.getMethods().keySet()).orElseGet(Collections::emptySet),
-            transformationContext.getSimilarity(),
-            methodHeader -> methodHeader.name() + methodHeader.descriptor()
+            transformationContext
         );
         for (MethodHeader submissionMethodHeader : methods.keySet()) {
             String submissionMethodName = submissionMethodHeader.name();

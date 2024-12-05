@@ -5,11 +5,11 @@ import org.objectweb.asm.Type;
 import org.tudalgo.algoutils.transform.classes.SolutionClassNode;
 import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
 import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
+import org.tudalgo.algoutils.transform.util.matching.ClassSimilarityMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * A record for holding context information for the transformation process.
@@ -25,7 +25,7 @@ public final class TransformationContext {
 
     private ClassLoader submissionClassLoader;
     private Set<String> submissionClassNames;
-    private SimilarityMapper<String> classSimilarityMapper;
+    private ClassSimilarityMapper classSimilarityMapper;
 
     /**
      * Constructs a new {@link TransformationContext}.
@@ -117,10 +117,9 @@ public final class TransformationContext {
      */
     @SuppressWarnings("unchecked")
     public void computeClassesSimilarity() {
-        classSimilarityMapper = new SimilarityMapper<>(submissionClassNames,
-            (Map<String, Collection<? extends String>>) configuration.get(SolutionMergingClassTransformer.Config.SOLUTION_CLASSES),
-            getSimilarity(),
-            Function.identity());
+        classSimilarityMapper = new ClassSimilarityMapper(submissionClassNames,
+            (Map<String, Collection<String>>) configuration.get(SolutionMergingClassTransformer.Config.SOLUTION_CLASSES),
+            getSimilarity());
     }
 
     // Submission classes
