@@ -234,15 +234,13 @@ public class Invocation {
             invocationArgs = params;
         }
 
-        SubmissionExecutionHandler executionHandler = SubmissionExecutionHandler.getInstance();
-        SubmissionExecutionHandler.Internal sehInternal = executionHandler.new Internal();
-        MethodSubstitution methodSubstitution = sehInternal.getSubstitution(methodHeader);
-        executionHandler.disableMethodSubstitution(methodHeader);
-        boolean isDelegated = !sehInternal.useSubmissionImpl(methodHeader);
+        MethodSubstitution methodSubstitution = SubmissionExecutionHandler.Internal.getSubstitution(methodHeader);
+        SubmissionExecutionHandler.Substitution.disable(methodHeader);
+        boolean isDelegated = !SubmissionExecutionHandler.Internal.useSubmissionImpl(methodHeader);
         if (delegate) {
-            executionHandler.enableMethodDelegation(methodHeader);
+            SubmissionExecutionHandler.Delegation.enable(methodHeader);
         } else {
-            executionHandler.disableMethodDelegation(methodHeader);
+            SubmissionExecutionHandler.Delegation.disable(methodHeader);
         }
 
         try {
@@ -258,11 +256,11 @@ public class Invocation {
         } catch (Throwable e) {
             throw new RuntimeException(e);
         } finally {
-            executionHandler.substituteMethod(methodHeader, methodSubstitution);
+            SubmissionExecutionHandler.Substitution.enable(methodHeader, methodSubstitution);
             if (isDelegated) {
-                executionHandler.enableMethodDelegation(methodHeader);
+                SubmissionExecutionHandler.Delegation.enable(methodHeader);
             } else {
-                executionHandler.disableMethodDelegation(methodHeader);
+                SubmissionExecutionHandler.Delegation.disable(methodHeader);
             }
         }
     }

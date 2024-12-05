@@ -33,10 +33,9 @@ public class SubmissionMethodVisitor extends BaseMethodVisitor {
                             MethodHeader computedMethodHeader) {
         super(delegate, transformationContext, submissionClassInfo, originalMethodHeader, computedMethodHeader);
 
-        localsIndexes.put(LocalsObject.SUBMISSION_EXECUTION_HANDLER, nextLocalsIndex);
-        localsIndexes.put(LocalsObject.METHOD_HEADER, nextLocalsIndex + 1);
-        localsIndexes.put(LocalsObject.METHOD_SUBSTITUTION, nextLocalsIndex + 2);
-        localsIndexes.put(LocalsObject.CONSTRUCTOR_INVOCATION, nextLocalsIndex + 3);
+        localsIndexes.put(LocalsObject.METHOD_HEADER, nextLocalsIndex);
+        localsIndexes.put(LocalsObject.METHOD_SUBSTITUTION, nextLocalsIndex + 1);
+        localsIndexes.put(LocalsObject.CONSTRUCTOR_INVOCATION, nextLocalsIndex + 2);
     }
 
     @Override
@@ -48,14 +47,13 @@ public class SubmissionMethodVisitor extends BaseMethodVisitor {
     public void visitCode() {
         Optional<MethodNode> solutionMethodNode = ((SubmissionClassInfo) classInfo).getSolutionClass()
             .map(solutionClassNode -> solutionClassNode.getMethods().get(computedMethodHeader));
-        Label submissionExecutionHandlerVarLabel = new Label();
         Label methodHeaderVarLabel = new Label();
         Label substitutionCheckLabel = new Label();
         Label delegationCheckLabel = new Label();
         Label submissionCodeLabel = new Label();
 
         // Setup
-        injectSetupCode(submissionExecutionHandlerVarLabel, methodHeaderVarLabel);
+        injectSetupCode(methodHeaderVarLabel);
 
         // Invocation logging
         injectInvocationLoggingCode(substitutionCheckLabel);
@@ -66,13 +64,9 @@ public class SubmissionMethodVisitor extends BaseMethodVisitor {
         // Method delegation
         // if no solution method is present, skip delegation
         if (solutionMethodNode.isPresent()) {
-            injectDelegationCode(solutionMethodNode.get(),
-                delegationCheckLabel,
-                submissionCodeLabel,
-                submissionExecutionHandlerVarLabel,
-                methodHeaderVarLabel);
+            injectDelegationCode(solutionMethodNode.get(), delegationCheckLabel, submissionCodeLabel, methodHeaderVarLabel);
         } else {
-            injectNoDelegationCode(submissionCodeLabel, submissionExecutionHandlerVarLabel, methodHeaderVarLabel);
+            injectNoDelegationCode(submissionCodeLabel, methodHeaderVarLabel);
         }
 
         if (headerMismatch) {

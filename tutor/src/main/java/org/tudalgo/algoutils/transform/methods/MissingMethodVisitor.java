@@ -21,10 +21,9 @@ public class MissingMethodVisitor extends BaseMethodVisitor {
                                 MethodHeader methodHeader) {
         super(delegate, transformationContext, classInfo, methodHeader, methodHeader);
 
-        localsIndexes.put(LocalsObject.SUBMISSION_EXECUTION_HANDLER, nextLocalsIndex);
-        localsIndexes.put(LocalsObject.METHOD_HEADER, nextLocalsIndex + 1);
-        localsIndexes.put(LocalsObject.METHOD_SUBSTITUTION, nextLocalsIndex + 2);
-        localsIndexes.put(LocalsObject.CONSTRUCTOR_INVOCATION, nextLocalsIndex + 3);
+        localsIndexes.put(LocalsObject.METHOD_HEADER, nextLocalsIndex);
+        localsIndexes.put(LocalsObject.METHOD_SUBSTITUTION, nextLocalsIndex + 1);
+        localsIndexes.put(LocalsObject.CONSTRUCTOR_INVOCATION, nextLocalsIndex + 2);
     }
 
     @Override
@@ -34,7 +33,6 @@ public class MissingMethodVisitor extends BaseMethodVisitor {
 
     @Override
     public void visitCode() {
-        Label submissionExecutionHandlerVarLabel = new Label();
         Label methodHeaderVarLabel = new Label();
         Label substitutionCheckLabel = new Label();
         Label delegationCheckLabel = new Label();
@@ -42,7 +40,7 @@ public class MissingMethodVisitor extends BaseMethodVisitor {
         Label submissionCodeLabel = new Label();
 
         // Setup
-        injectSetupCode(submissionExecutionHandlerVarLabel, methodHeaderVarLabel);
+        injectSetupCode(methodHeaderVarLabel);
 
         // Invocation logging
         injectInvocationLoggingCode(substitutionCheckLabel);
@@ -54,7 +52,6 @@ public class MissingMethodVisitor extends BaseMethodVisitor {
         // check if call should be delegated to solution or not
         delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
         delegate.visitLabel(delegationCheckLabel);
-        delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
         delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
         Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBMISSION_IMPL.toMethodInsn(getDelegate(), false);
         delegate.visitJumpInsn(IFEQ, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == false
@@ -64,7 +61,6 @@ public class MissingMethodVisitor extends BaseMethodVisitor {
         fullFrameLocals.removeLast();
         fullFrameLocals.removeLast();
         delegate.visitLabel(delegationCodeLabel);
-        LocalsObject.SUBMISSION_EXECUTION_HANDLER.visitLocalVariable(this, submissionExecutionHandlerVarLabel, delegationCodeLabel);
         LocalsObject.METHOD_HEADER.visitLocalVariable(this, methodHeaderVarLabel, delegationCodeLabel);
         IncompatibleHeaderException.replicateInBytecode(delegate, true,
             "Method has incorrect return or parameter types", computedMethodHeader, null);

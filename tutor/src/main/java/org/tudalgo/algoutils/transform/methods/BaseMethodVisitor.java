@@ -68,7 +68,6 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
     }
 
     public enum LocalsObject {
-        SUBMISSION_EXECUTION_HANDLER("submissionExecutionHandler", Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_TYPE.getDescriptor()),
         METHOD_HEADER("methodHeader", Constants.METHOD_HEADER_TYPE.getDescriptor()),
         METHOD_SUBSTITUTION("methodSubstitution", Constants.METHOD_SUBSTITUTION_TYPE.getDescriptor()),
         CONSTRUCTOR_INVOCATION("constructorInvocation", Constants.METHOD_SUBSTITUTION_CONSTRUCTOR_INVOCATION_TYPE.getDescriptor());
@@ -96,38 +95,23 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
 
     protected abstract int getLocalsIndex(LocalsObject localsObject);
 
-    protected void injectSetupCode(Label submissionExecutionHandlerVarLabel, Label methodHeaderVarLabel) {
-        // create SubmissionExecutionHandler$Internal instance and store in locals array
-        delegate.visitTypeInsn(NEW, Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_TYPE.getInternalName());
-        delegate.visitInsn(DUP);
-        Constants.SUBMISSION_EXECUTION_HANDLER_GET_INSTANCE.toMethodInsn(delegate, false);
-        Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_CONSTRUCTOR.toMethodInsn(delegate, false);
-        delegate.visitVarInsn(ASTORE, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
-        delegate.visitLabel(submissionExecutionHandlerVarLabel);
-
+    protected void injectSetupCode(Label methodHeaderVarLabel) {
         // replicate method header in bytecode and store in locals array
         computedMethodHeader.buildHeader(delegate);
         delegate.visitVarInsn(ASTORE, getLocalsIndex(LocalsObject.METHOD_HEADER));
         delegate.visitLabel(methodHeaderVarLabel);
 
-        delegate.visitFrame(F_APPEND,
-            2,
-            new Object[] {Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_TYPE.getInternalName(), computedMethodHeader.getType().getInternalName()},
-            0,
-            null);
-        fullFrameLocals.add(Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_TYPE.getInternalName());
+        delegate.visitFrame(F_APPEND, 1, new Object[] {computedMethodHeader.getType().getInternalName()}, 0, null);
         fullFrameLocals.add(computedMethodHeader.getType().getInternalName());
     }
 
     protected void injectInvocationLoggingCode(Label nextLabel) {
         // check if invocation should be logged
-        delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
         delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
         Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_LOG_INVOCATION.toMethodInsn(delegate, false);
         delegate.visitJumpInsn(IFEQ, nextLabel); // jump to label if logInvocation(...) == false
 
         // intercept parameters
-        delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
         delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
         injectInvocation(Type.getArgumentTypes(computedMethodHeader.descriptor()));
         Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_ADD_INVOCATION.toMethodInsn(delegate, false);
@@ -140,13 +124,11 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         // check if substitution exists for this method
         delegate.visitFrame(F_SAME, 0, null, 0, null);
         delegate.visitLabel(substitutionCheckLabel);
-        delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
         delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
         Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBSTITUTION.toMethodInsn(delegate, false);
         delegate.visitJumpInsn(IFEQ, nextLabel); // jump to label if useSubstitution(...) == false
 
         // get substitution and execute it
-        delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
         delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
         Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_GET_SUBSTITUTION.toMethodInsn(delegate, false);
         delegate.visitVarInsn(ASTORE, getLocalsIndex(LocalsObject.METHOD_SUBSTITUTION));
@@ -252,14 +234,12 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
     protected void injectDelegationCode(MethodNode solutionMethodNode,
                                         Label delegationCheckLabel,
                                         Label submissionCodeLabel,
-                                        Label submissionExecutionHandlerVarLabel,
                                         Label methodHeaderVarLabel) {
         Label delegationCodeLabel = new Label();
 
         // check if call should be delegated to solution or not
         delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
         delegate.visitLabel(delegationCheckLabel);
-        delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.SUBMISSION_EXECUTION_HANDLER));
         delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
         Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBMISSION_IMPL.toMethodInsn(delegate, false);
         delegate.visitJumpInsn(IFNE, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == true
@@ -269,7 +249,6 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         fullFrameLocals.removeLast();
         fullFrameLocals.removeLast();
         delegate.visitLabel(delegationCodeLabel);
-        LocalsObject.SUBMISSION_EXECUTION_HANDLER.visitLocalVariable(this, submissionExecutionHandlerVarLabel, delegationCodeLabel);
         LocalsObject.METHOD_HEADER.visitLocalVariable(this, methodHeaderVarLabel, delegationCodeLabel);
         solutionMethodNode.accept(delegate);
 
@@ -277,14 +256,11 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         delegate.visitLabel(submissionCodeLabel);
     }
 
-    protected void injectNoDelegationCode(Label submissionCodeLabel,
-                                          Label submissionExecutionHandlerVarLabel,
-                                          Label methodHeaderVarLabel) {
+    protected void injectNoDelegationCode(Label submissionCodeLabel, Label methodHeaderVarLabel) {
         fullFrameLocals.removeLast();
         fullFrameLocals.removeLast();
         delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
         delegate.visitLabel(submissionCodeLabel);
-        LocalsObject.SUBMISSION_EXECUTION_HANDLER.visitLocalVariable(this, submissionExecutionHandlerVarLabel, submissionCodeLabel);
         LocalsObject.METHOD_HEADER.visitLocalVariable(this, methodHeaderVarLabel, submissionCodeLabel);
     }
 

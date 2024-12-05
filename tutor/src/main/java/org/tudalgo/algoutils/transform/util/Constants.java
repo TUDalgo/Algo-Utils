@@ -28,8 +28,6 @@ public final class Constants {
     public static final Type INVOCATION_TYPE = Type.getType(Invocation.class);
     public static final Type METHOD_SUBSTITUTION_TYPE = Type.getType(MethodSubstitution.class);
     public static final Type METHOD_SUBSTITUTION_CONSTRUCTOR_INVOCATION_TYPE = Type.getType(MethodSubstitution.ConstructorInvocation.class);
-    public static final Type SUBMISSION_EXECUTION_HANDLER_TYPE = Type.getType(SubmissionExecutionHandler.class);
-    public static final Type SUBMISSION_EXECUTION_HANDLER_INTERNAL_TYPE = Type.getType(SubmissionExecutionHandler.Internal.class);
 
     // Methods used in bytecode
 
@@ -52,8 +50,6 @@ public final class Constants {
         "()L%s<%s>;".formatted(SET_TYPE.getInternalName(), METHOD_HEADER_TYPE.getDescriptor()),
         null);
 
-    public static final MethodHeader SUBMISSION_EXECUTION_HANDLER_GET_INSTANCE;
-    public static final MethodHeader SUBMISSION_EXECUTION_HANDLER_INTERNAL_CONSTRUCTOR;
     public static final MethodHeader SUBMISSION_EXECUTION_HANDLER_INTERNAL_LOG_INVOCATION;
     public static final MethodHeader SUBMISSION_EXECUTION_HANDLER_INTERNAL_ADD_INVOCATION;
     public static final MethodHeader SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBSTITUTION;
@@ -72,8 +68,6 @@ public final class Constants {
 
     static {
         try {
-            SUBMISSION_EXECUTION_HANDLER_GET_INSTANCE = new MethodHeader(SubmissionExecutionHandler.class.getDeclaredMethod("getInstance"));
-            SUBMISSION_EXECUTION_HANDLER_INTERNAL_CONSTRUCTOR = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredConstructor(SubmissionExecutionHandler.class));
             SUBMISSION_EXECUTION_HANDLER_INTERNAL_LOG_INVOCATION = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredMethod("logInvocation", MethodHeader.class));
             SUBMISSION_EXECUTION_HANDLER_INTERNAL_ADD_INVOCATION = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredMethod("addInvocation", MethodHeader.class, Invocation.class));
             SUBMISSION_EXECUTION_HANDLER_INTERNAL_USE_SUBSTITUTION = new MethodHeader(SubmissionExecutionHandler.Internal.class.getDeclaredMethod("useSubstitution", MethodHeader.class));
