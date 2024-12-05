@@ -57,8 +57,7 @@ public class MissingMethodVisitor extends BaseMethodVisitor {
         delegate.visitJumpInsn(IFEQ, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == false
 
         // replay instructions from solution
-        delegate.visitFrame(F_CHOP, 2, null, 0, null);
-        fullFrameLocals.removeLast();
+        delegate.visitFrame(F_CHOP, 1, null, 0, null);
         fullFrameLocals.removeLast();
         delegate.visitLabel(delegationCodeLabel);
         LocalsObject.METHOD_HEADER.visitLocalVariable(this, methodHeaderVarLabel, delegationCodeLabel);

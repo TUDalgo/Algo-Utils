@@ -245,8 +245,7 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         delegate.visitJumpInsn(IFNE, submissionCodeLabel); // jump to label if useSubmissionImpl(...) == true
 
         // replay instructions from solution
-        delegate.visitFrame(F_CHOP, 2, null, 0, null);
-        fullFrameLocals.removeLast();
+        delegate.visitFrame(F_CHOP, 1, null, 0, null);
         fullFrameLocals.removeLast();
         delegate.visitLabel(delegationCodeLabel);
         LocalsObject.METHOD_HEADER.visitLocalVariable(this, methodHeaderVarLabel, delegationCodeLabel);
@@ -257,7 +256,6 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
     }
 
     protected void injectNoDelegationCode(Label submissionCodeLabel, Label methodHeaderVarLabel) {
-        fullFrameLocals.removeLast();
         fullFrameLocals.removeLast();
         delegate.visitFrame(F_FULL, fullFrameLocals.size(), fullFrameLocals.toArray(), 0, new Object[0]);
         delegate.visitLabel(submissionCodeLabel);
