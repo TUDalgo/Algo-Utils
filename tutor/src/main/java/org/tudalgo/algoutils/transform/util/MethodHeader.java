@@ -30,7 +30,7 @@ import static org.objectweb.asm.Opcodes.*;
 public record MethodHeader(String owner, int access, String name, String descriptor, String signature, String[] exceptions) implements Header {
 
     /**
-     * Constructs a new method header with reduced information.
+     * Constructs a new method header with only necessary information.
      * This method header should not invoke {@link #toMethodVisitor(ClassVisitor)},
      * {@link #toMethodInsn(MethodVisitor, boolean)} or {@link #getOpcode()}.
      *
@@ -118,6 +118,38 @@ public record MethodHeader(String owner, int access, String name, String descrip
             return INVOKEDYNAMIC;
         } else {
             return INVOKEVIRTUAL;
+        }
+    }
+
+    /**
+     * Returns a new method header describing the specified constructor.
+     *
+     * @param declaringClass the class the constructor is declared in
+     * @param parameterTypes the constructor's parameter types
+     * @return the new method header object
+     */
+    public static MethodHeader of(Class<?> declaringClass, Class<?>... parameterTypes) {
+        try {
+            return new MethodHeader(declaringClass.getDeclaredConstructor(parameterTypes));
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Returns a new method header describing the specified method.
+     * For constructors use {@link #of(Class, Class...)}.
+     *
+     * @param declaringClass the class the method is declared in
+     * @param name           the method's name
+     * @param parameterTypes the method's parameter types
+     * @return the new method header object
+     */
+    public static MethodHeader of(Class<?> declaringClass, String name, Class<?>... parameterTypes) {
+        try {
+            return new MethodHeader(declaringClass.getDeclaredMethod(name, parameterTypes));
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
         }
     }
 

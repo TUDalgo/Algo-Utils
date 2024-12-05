@@ -23,6 +23,11 @@ import java.util.Objects;
  */
 public record FieldHeader(String owner, int access, String name, String descriptor, String signature) implements Header {
 
+    /**
+     * Constructs a new field header using the given field.
+     *
+     * @param field a java reflection field
+     */
     public FieldHeader(Field field) {
         this(Type.getInternalName(field.getDeclaringClass()),
             field.getModifiers(),
@@ -57,6 +62,21 @@ public record FieldHeader(String owner, int access, String name, String descript
      */
     public FieldVisitor toFieldVisitor(ClassVisitor delegate, Object value) {
         return delegate.visitField(access & ~Opcodes.ACC_FINAL, name, descriptor, signature, value);
+    }
+
+    /**
+     * Returns a new field header describing the specified field.
+     *
+     * @param declaringClass the class the field is declared in
+     * @param name           the field's name
+     * @return the new field header object
+     */
+    public static FieldHeader of(Class<?> declaringClass, String name) {
+        try {
+            return new FieldHeader(declaringClass.getDeclaredField(name));
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

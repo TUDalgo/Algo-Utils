@@ -58,6 +58,20 @@ public record ClassHeader(int access, String name, String signature, String supe
         delegate.visit(version, this.access, this.name, this.signature, this.superName, interfaces);
     }
 
+    /**
+     * Returns a new class header describing the given class.
+     *
+     * @param clazz the class
+     * @return the new class header object
+     */
+    public static ClassHeader of(Class<?> clazz) {
+        return new ClassHeader(clazz.getModifiers(),
+            Type.getInternalName(clazz),
+            null,
+            clazz.getSuperclass() != null ? Type.getInternalName(clazz.getSuperclass()) : null,
+            Arrays.stream(clazz.getInterfaces()).map(Type::getInternalName).toArray(String[]::new));
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
