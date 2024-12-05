@@ -185,6 +185,29 @@ public class SubmissionExecutionHandler {
         public static void reset() {
             METHOD_INVOCATIONS.clear();
         }
+
+        /**
+         * Returns all logged invocations for the given method / constructor.
+         *
+         * @param executable the method / constructor to get invocations of
+         * @return a list of invocations on the given method
+         */
+        public static List<Invocation> getInvocations(Executable executable) {
+            return getInvocations(new MethodHeader(executable));
+        }
+
+        /**
+         * Returns all logged invocations for the given method.
+         *
+         * @param methodHeader a method header describing the method
+         * @return a list of invocations on the given method
+         */
+        public static List<Invocation> getInvocations(MethodHeader methodHeader) {
+            return Optional.ofNullable(METHOD_INVOCATIONS.get(methodHeader.owner()))
+                .map(map -> map.get(methodHeader))
+                .map(Collections::unmodifiableList)
+                .orElse(null);
+        }
     }
 
     public static final class Substitution {
