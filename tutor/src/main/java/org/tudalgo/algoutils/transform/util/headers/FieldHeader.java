@@ -67,6 +67,31 @@ public record FieldHeader(String owner, int access, String name, String descript
     }
 
     /**
+     * Returns the modifiers of this field header.
+     * Alias of {@link #access()}.
+     *
+     * @return the modifiers of this field header
+     */
+    @Override
+    public int modifiers() {
+        return access;
+    }
+
+    /**
+     * Returns a class object that identifies the declared type for the field represented by this field header.
+     *
+     * @return the declared type for this field header
+     */
+    @SuppressWarnings("unchecked")
+    public <T> Class<T> getType() {
+        try {
+            return (Class<T>) TransformationUtils.getClassForType(Type.getType(descriptor));
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * Returns a new field header describing the specified field.
      *
      * @param declaringClass the class the field is declared in

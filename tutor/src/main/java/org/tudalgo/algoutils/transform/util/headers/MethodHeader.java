@@ -9,6 +9,7 @@ import org.tudalgo.algoutils.transform.util.TransformationUtils;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -121,6 +122,50 @@ public record MethodHeader(String owner, int access, String name, String descrip
         } else {
             return INVOKEVIRTUAL;
         }
+    }
+
+    /**
+     * Returns the modifiers of this method header.
+     * Alias of {@link #access()}.
+     *
+     * @return the modifiers of this method header
+     */
+    @Override
+    public int modifiers() {
+        return access;
+    }
+
+    /**
+     * Returns a class object that identifies the declared return type for
+     * the method represented by this method header.
+     *
+     * @return the declared return type for this method
+     */
+    @SuppressWarnings("unchecked")
+    public <T> Class<T> getReturnType() {
+        try {
+            return (Class<T>) TransformationUtils.getClassForType(Type.getReturnType(descriptor));
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Returns a list of class objects that identify the declared parameter types for
+     * the method represented by this method header.
+     *
+     * @return the declared parameter types for this method
+     */
+    @SuppressWarnings("unchecked")
+    public <T> List<Class<T>> getParameterTypes() {
+        return Arrays.stream(Type.getArgumentTypes(descriptor))
+            .map(type -> {
+                try {
+                    return (Class<T>) TransformationUtils.getClassForType(type);
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+            }).toList();
     }
 
     /**

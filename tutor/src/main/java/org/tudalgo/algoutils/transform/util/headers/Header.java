@@ -26,6 +26,8 @@ public sealed interface Header permits ClassHeader, FieldHeader, MethodHeader {
 
     HeaderRecordComponent[] getComponents();
 
+    int modifiers();
+
     /**
      * Replicates the given header with bytecode instructions using the supplied method visitor.
      * Upon return, a reference to the newly created header object is located at

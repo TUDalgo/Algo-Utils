@@ -267,4 +267,27 @@ public final class TransformationUtils {
             default -> throw new IllegalStateException("Unexpected type: " + type);
         };
     }
+
+    /**
+     * Returns the class that represents the given type.
+     *
+     * @param type the type whose class representation to get
+     * @return the class that represents the given type
+     * @throws ClassNotFoundException if the class for a reference type could not be found
+     */
+    public static Class<?> getClassForType(Type type) throws ClassNotFoundException {
+        return switch (type.getSort()) {
+            case Type.VOID -> void.class;
+            case Type.BOOLEAN -> boolean.class;
+            case Type.BYTE -> byte.class;
+            case Type.SHORT -> short.class;
+            case Type.CHAR -> char.class;
+            case Type.INT -> int.class;
+            case Type.FLOAT -> float.class;
+            case Type.LONG -> long.class;
+            case Type.DOUBLE -> double.class;
+            case Type.OBJECT, Type.ARRAY -> Class.forName(type.getInternalName().replace('/', '.'));
+            default -> throw new IllegalArgumentException("Unsupported type: " + type);
+        };
+    }
 }

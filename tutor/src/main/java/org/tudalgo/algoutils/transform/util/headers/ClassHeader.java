@@ -7,6 +7,7 @@ import org.tudalgo.algoutils.transform.util.Constants;
 import org.tudalgo.algoutils.transform.util.TransformationUtils;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -58,6 +59,51 @@ public record ClassHeader(int access, String name, String signature, String supe
         }
 
         delegate.visit(version, this.access, this.name, this.signature, this.superName, interfaces);
+    }
+
+    /**
+     * Returns the modifiers of this class header.
+     * Alias of {@link #access()}.
+     *
+     * @return the modifiers of this class header
+     */
+    @Override
+    public int modifiers() {
+        return access;
+    }
+
+    /**
+     * Returns a class object that identifies the declared super class for
+     * the class represented by this class header.
+     *
+     * @return the declared super class for this class
+     */
+    @SuppressWarnings("unchecked")
+    public <T> Class<T> getSuperType() {
+        try {
+            return (Class<T>) TransformationUtils.getClassForType(Type.getObjectType(superName));
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Returns a list of class object that identify the declared interfaces for
+     * the class represented by this class header.
+     *
+     * @return the declared interfaces for this class
+     */
+    @SuppressWarnings("unchecked")
+    public <T> List<Class<T>> getInterfaceTypes() {
+        return Arrays.stream(interfaces)
+            .map(interfaceName -> {
+                try {
+                    return (Class<T>) TransformationUtils.getClassForType(Type.getObjectType(interfaceName));
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+            })
+            .toList();
     }
 
     /**
