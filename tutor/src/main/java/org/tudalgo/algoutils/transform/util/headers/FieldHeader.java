@@ -39,7 +39,7 @@ public record FieldHeader(String owner, int access, String name, String descript
     }
 
     @Override
-    public Type getType() {
+    public Type getHeaderType() {
         return Constants.FIELD_HEADER_TYPE;
     }
 

@@ -103,8 +103,8 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         delegate.visitVarInsn(ASTORE, getLocalsIndex(LocalsObject.METHOD_HEADER));
         delegate.visitLabel(methodHeaderVarLabel);
 
-        delegate.visitFrame(F_APPEND, 1, new Object[] {computedMethodHeader.getType().getInternalName()}, 0, null);
-        fullFrameLocals.add(computedMethodHeader.getType().getInternalName());
+        delegate.visitFrame(F_APPEND, 1, new Object[] {computedMethodHeader.getHeaderType().getInternalName()}, 0, null);
+        fullFrameLocals.add(computedMethodHeader.getHeaderType().getInternalName());
     }
 
     protected void injectInvocationLoggingCode(Label nextLabel) {

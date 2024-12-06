@@ -65,7 +65,7 @@ public record MethodHeader(String owner, int access, String name, String descrip
     }
 
     @Override
-    public Type getType() {
+    public Type getHeaderType() {
         return Constants.METHOD_HEADER_TYPE;
     }
 

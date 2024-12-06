@@ -22,7 +22,7 @@ public sealed interface Header permits ClassHeader, FieldHeader, MethodHeader {
      *
      * @return the type for this header
      */
-    Type getType();
+    Type getHeaderType();
 
     HeaderRecordComponent[] getComponents();
 
@@ -35,11 +35,11 @@ public sealed interface Header permits ClassHeader, FieldHeader, MethodHeader {
      * @return the maximum stack size used during the operation
      */
     default int buildHeader(MethodVisitor mv) {
-        Type headerType = getType();
+        Type headerType = getHeaderType();
         HeaderRecordComponent[] components = getComponents();
         int maxStack, stackSize;
 
-        mv.visitTypeInsn(NEW, getType().getInternalName());
+        mv.visitTypeInsn(NEW, getHeaderType().getInternalName());
         mv.visitInsn(DUP);
         maxStack = stackSize = 2;
         for (HeaderRecordComponent component : components) {

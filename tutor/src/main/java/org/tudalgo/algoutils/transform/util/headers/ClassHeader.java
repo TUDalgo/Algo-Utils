@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 public record ClassHeader(int access, String name, String signature, String superName, String[] interfaces) implements Header {
 
     @Override
-    public Type getType() {
+    public Type getHeaderType() {
         return Constants.CLASS_HEADER_TYPE;
     }
 
