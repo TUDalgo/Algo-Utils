@@ -41,7 +41,7 @@ public abstract class SimilarityMapper<T> {
         Map<T, Stack<T>> reverseMappings = new HashMap<>();
         bestMatches.forEach((row, col) -> reverseMappings.computeIfAbsent(col, k -> new Stack<>()).add(row));
         reverseMappings.forEach((col, rows) -> {
-            rows.sort(Comparator.comparingDouble(row -> similarityMatrix[rows.indexOf(row)][columns.indexOf(col)]));
+            rows.sort(Comparator.comparingDouble(row -> similarityMatrix[this.rows.indexOf(row)][columns.indexOf(col)]));
             rows.pop(); // exclude best match
             rows.forEach(bestMatches::remove); // remove the rest
         });

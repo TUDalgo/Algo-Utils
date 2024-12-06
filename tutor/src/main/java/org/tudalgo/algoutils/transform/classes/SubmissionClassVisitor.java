@@ -10,6 +10,7 @@ import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.*;
 
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.objectweb.asm.Opcodes.*;
@@ -136,10 +137,16 @@ public class SubmissionClassVisitor extends ClassVisitor {
      */
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-        submissionClassInfo.getSolutionClass()
+        ClassHeader classHeader = submissionClassInfo.getSolutionClass()
             .map(SolutionClassNode::getClassHeader)
-            .orElse(originalClassHeader)
-            .visitClass(getDelegate(), version);
+            .orElse(originalClassHeader);
+        List<String> classHeaderInterfaces = List.of(classHeader.interfaces());
+        String[] additionalInterfaces = Arrays.stream(interfaces)
+            .map(transformationContext::toComputedInternalName)
+            .filter(Predicate.not(classHeaderInterfaces::contains))
+            .toArray(String[]::new);
+
+        classHeader.visitClass(getDelegate(), version, additionalInterfaces);
     }
 
     /**
@@ -149,17 +156,16 @@ public class SubmissionClassVisitor extends ClassVisitor {
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
         FieldHeader fieldHeader = submissionClassInfo.getComputedFieldHeader(name);
 
-        if (TransformationUtils.contextIsCompatible(access, fieldHeader.access()) &&
-            transformationContext.descriptorIsCompatible(descriptor, fieldHeader.descriptor())) {
-            visitedFields.add(fieldHeader);
-            return fieldHeader.toFieldVisitor(getDelegate(), value);
-        } else {
-            return super.visitField(TransformationUtils.transformAccess(access),
+        if (!TransformationUtils.contextIsCompatible(access, fieldHeader.access()) ||
+            !transformationContext.descriptorIsCompatible(descriptor, fieldHeader.descriptor())) {
+            fieldHeader = new FieldHeader(computedClassHeader.name(),
+                TransformationUtils.transformAccess(access),
                 name + "$submission",
                 transformationContext.toComputedDescriptor(descriptor),
-                signature,
-                value);
+                signature);
         }
+        visitedFields.add(fieldHeader);
+        return fieldHeader.toFieldVisitor(getDelegate(), value);
     }
 
     /**
@@ -184,17 +190,16 @@ public class SubmissionClassVisitor extends ClassVisitor {
             MethodHeader originalMethodHeader = new MethodHeader(originalClassHeader.name(), access, name, descriptor, signature, exceptions);
             MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
 
-            if (TransformationUtils.contextIsCompatible(access, computedMethodHeader.access()) &&
-                transformationContext.descriptorIsCompatible(descriptor, computedMethodHeader.descriptor())) {
-                visitedMethods.add(computedMethodHeader);
-            } else {
+            if (!TransformationUtils.contextIsCompatible(access, computedMethodHeader.access()) ||
+                !transformationContext.descriptorIsCompatible(descriptor, computedMethodHeader.descriptor())) {
                 computedMethodHeader = new MethodHeader(computedMethodHeader.owner(),
-                    access,
+                    TransformationUtils.transformAccess(access),
                     name + "$submission",
                     transformationContext.toComputedDescriptor(descriptor),
                     signature,
                     exceptions);
             }
+            visitedMethods.add(computedMethodHeader);
             return new SubmissionMethodVisitor(computedMethodHeader.toMethodVisitor(getDelegate()),
                 transformationContext,
                 submissionClassInfo,
