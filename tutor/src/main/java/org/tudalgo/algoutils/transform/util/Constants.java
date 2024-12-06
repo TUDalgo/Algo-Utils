@@ -3,6 +3,10 @@ package org.tudalgo.algoutils.transform.util;
 import org.objectweb.asm.Type;
 import org.tudalgo.algoutils.student.annotation.ForceSignature;
 import org.tudalgo.algoutils.transform.SubmissionExecutionHandler;
+import org.tudalgo.algoutils.transform.util.headers.ClassHeader;
+import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
+import org.tudalgo.algoutils.transform.util.headers.Header;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.util.Set;
 

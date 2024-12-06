@@ -5,6 +5,8 @@ import org.objectweb.asm.tree.MethodNode;
 import org.tudalgo.algoutils.transform.classes.ClassInfo;
 import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
 import org.tudalgo.algoutils.transform.util.*;
+import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.util.ArrayList;
 import java.util.Arrays;

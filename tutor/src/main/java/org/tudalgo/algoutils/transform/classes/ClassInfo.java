@@ -3,9 +3,9 @@ package org.tudalgo.algoutils.transform.classes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.tudalgo.algoutils.transform.util.ClassHeader;
-import org.tudalgo.algoutils.transform.util.FieldHeader;
-import org.tudalgo.algoutils.transform.util.MethodHeader;
+import org.tudalgo.algoutils.transform.util.headers.ClassHeader;
+import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 
 import java.lang.reflect.Modifier;

@@ -8,6 +8,9 @@ import org.tudalgo.algoutils.transform.methods.MissingMethodVisitor;
 import org.tudalgo.algoutils.transform.methods.SubmissionMethodVisitor;
 import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.*;
+import org.tudalgo.algoutils.transform.util.headers.ClassHeader;
+import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.util.*;
 import java.util.function.Predicate;

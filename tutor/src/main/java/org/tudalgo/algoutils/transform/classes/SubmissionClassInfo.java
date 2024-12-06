@@ -2,6 +2,9 @@ package org.tudalgo.algoutils.transform.classes;
 
 import org.tudalgo.algoutils.transform.util.*;
 import org.objectweb.asm.*;
+import org.tudalgo.algoutils.transform.util.headers.ClassHeader;
+import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 import org.tudalgo.algoutils.transform.util.matching.FieldSimilarityMapper;
 import org.tudalgo.algoutils.transform.util.matching.MethodSimilarityMapper;
 

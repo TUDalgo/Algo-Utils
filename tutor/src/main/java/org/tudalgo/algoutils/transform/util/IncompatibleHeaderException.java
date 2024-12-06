@@ -2,6 +2,7 @@ package org.tudalgo.algoutils.transform.util;
 
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
+import org.tudalgo.algoutils.transform.util.headers.Header;
 
 import static org.objectweb.asm.Opcodes.*;
 import static org.objectweb.asm.Opcodes.ATHROW;

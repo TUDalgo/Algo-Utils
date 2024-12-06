@@ -2,6 +2,7 @@ package org.tudalgo.algoutils.transform.util;
 
 import org.objectweb.asm.Opcodes;
 import org.tudalgo.algoutils.transform.SubmissionExecutionHandler;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

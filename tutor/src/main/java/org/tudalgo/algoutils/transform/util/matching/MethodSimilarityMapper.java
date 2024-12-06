@@ -1,6 +1,6 @@
 package org.tudalgo.algoutils.transform.util.matching;
 
-import org.tudalgo.algoutils.transform.util.MethodHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 import org.tudalgo.algoutils.tutor.general.match.MatchingUtils;
 

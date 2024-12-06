@@ -4,6 +4,7 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.tudalgo.algoutils.transform.classes.ClassInfo;
 import org.tudalgo.algoutils.transform.util.*;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.util.EnumMap;
 import java.util.Map;

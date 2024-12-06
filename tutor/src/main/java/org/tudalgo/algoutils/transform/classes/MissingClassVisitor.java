@@ -6,7 +6,7 @@ import org.objectweb.asm.Opcodes;
 import org.tudalgo.algoutils.transform.methods.MissingMethodVisitor;
 import org.tudalgo.algoutils.transform.util.Constants;
 import org.tudalgo.algoutils.transform.util.IncompatibleHeaderException;
-import org.tudalgo.algoutils.transform.util.MethodHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 
 /**

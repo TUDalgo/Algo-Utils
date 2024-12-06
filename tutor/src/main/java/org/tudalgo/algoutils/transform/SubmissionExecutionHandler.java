@@ -2,6 +2,9 @@ package org.tudalgo.algoutils.transform;
 
 import org.tudalgo.algoutils.transform.classes.SubmissionClassVisitor;
 import org.tudalgo.algoutils.transform.util.*;
+import org.tudalgo.algoutils.transform.util.headers.ClassHeader;
+import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;

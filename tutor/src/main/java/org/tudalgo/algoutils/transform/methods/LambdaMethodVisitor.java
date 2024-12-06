@@ -2,7 +2,7 @@ package org.tudalgo.algoutils.transform.methods;
 
 import org.objectweb.asm.MethodVisitor;
 import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
-import org.tudalgo.algoutils.transform.util.MethodHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 
 /**

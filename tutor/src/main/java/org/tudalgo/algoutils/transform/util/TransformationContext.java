@@ -5,6 +5,7 @@ import org.objectweb.asm.Type;
 import org.tudalgo.algoutils.transform.classes.SolutionClassNode;
 import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
 import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 import org.tudalgo.algoutils.transform.util.matching.ClassSimilarityMapper;
 
 import java.io.IOException;

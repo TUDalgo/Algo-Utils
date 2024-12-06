@@ -7,7 +7,7 @@ import org.tudalgo.algoutils.transform.classes.MissingClassVisitor;
 import org.tudalgo.algoutils.transform.classes.SolutionClassNode;
 import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
 import org.tudalgo.algoutils.transform.classes.SubmissionClassVisitor;
-import org.tudalgo.algoutils.transform.util.MethodHeader;
+import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
