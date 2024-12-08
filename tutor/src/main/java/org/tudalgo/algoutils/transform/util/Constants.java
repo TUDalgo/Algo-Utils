@@ -8,8 +8,10 @@ import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
 import org.tudalgo.algoutils.transform.util.headers.Header;
 import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
+import java.util.List;
 import java.util.Set;
 
+import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
 
@@ -22,16 +24,26 @@ public final class Constants {
     public static final Type STRING_TYPE = Type.getType(String.class);
     public static final Type STRING_ARRAY_TYPE = Type.getType(String[].class);
     public static final Type SET_TYPE = Type.getType(Set.class);
+    public static final Type LIST_TYPE = Type.getType(List.class);
 
     public static final Type HEADER_TYPE = Type.getType(Header.class);
     public static final Type CLASS_HEADER_TYPE = Type.getType(ClassHeader.class);
     public static final Type FIELD_HEADER_TYPE = Type.getType(FieldHeader.class);
     public static final Type METHOD_HEADER_TYPE = Type.getType(MethodHeader.class);
 
+    public static final Type ENUM_CONSTANT_TYPE = Type.getType(EnumConstant.class);
     public static final Type FORCE_SIGNATURE_TYPE = Type.getType(ForceSignature.class);
     public static final Type INVOCATION_TYPE = Type.getType(Invocation.class);
     public static final Type METHOD_SUBSTITUTION_TYPE = Type.getType(MethodSubstitution.class);
     public static final Type METHOD_SUBSTITUTION_CONSTRUCTOR_INVOCATION_TYPE = Type.getType(MethodSubstitution.ConstructorInvocation.class);
+
+    // Fields used in bytecode
+
+    public static final FieldHeader INJECTED_ORIGINAL_ENUM_CONSTANTS = new FieldHeader(null,
+        ACC_PRIVATE | ACC_STATIC,
+        "originalEnumConstants$injected",
+        LIST_TYPE.getDescriptor(),
+        "L%s<%s>;".formatted(LIST_TYPE.getInternalName(), ENUM_CONSTANT_TYPE.getDescriptor()));
 
     // Methods used in bytecode
 
@@ -52,6 +64,12 @@ public final class Constants {
         "getOriginalMethodHeaders",
         Type.getMethodDescriptor(SET_TYPE),
         "()L%s<%s>;".formatted(SET_TYPE.getInternalName(), METHOD_HEADER_TYPE.getDescriptor()),
+        null);
+    public static final MethodHeader INJECTED_GET_ORIGINAL_ENUM_CONSTANTS = new MethodHeader(null,
+        ACC_PUBLIC | ACC_STATIC,
+        "getOriginalEnumConstants",
+        Type.getMethodDescriptor(LIST_TYPE),
+        "()L%s<%s>;".formatted(LIST_TYPE.getInternalName(), ENUM_CONSTANT_TYPE.getDescriptor()),
         null);
 
     public static final MethodHeader SUBMISSION_EXECUTION_HANDLER_INTERNAL_LOG_INVOCATION;

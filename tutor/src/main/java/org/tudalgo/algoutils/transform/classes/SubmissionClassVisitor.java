@@ -110,13 +110,13 @@ import static org.objectweb.asm.Opcodes.*;
  */
 public class SubmissionClassVisitor extends ClassVisitor {
 
-    private final TransformationContext transformationContext;
-    private final SubmissionClassInfo submissionClassInfo;
-    private final ClassHeader originalClassHeader;
-    private final ClassHeader computedClassHeader;
+    protected final TransformationContext transformationContext;
+    protected final SubmissionClassInfo submissionClassInfo;
+    protected final ClassHeader originalClassHeader;
+    protected final ClassHeader computedClassHeader;
 
-    private final Set<FieldHeader> visitedFields = new HashSet<>();
-    private final Set<MethodHeader> visitedMethods = new HashSet<>();
+    protected final Set<FieldHeader> visitedFields = new HashSet<>();
+    protected final Set<MethodHeader> visitedMethods = new HashSet<>();
 
     /**
      * Constructs a new {@link SubmissionClassVisitor} instance.

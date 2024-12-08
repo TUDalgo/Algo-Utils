@@ -156,6 +156,33 @@ public class SubmissionExecutionHandler {
     }
 
     /**
+     * Returns the list of original enum constants for the given submission class.
+     *
+     * @param clazz the submission class
+     * @return the list of original enum constants
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends Enum<T>> List<EnumConstant> getOriginalEnumConstants(Class<T> clazz) {
+        try {
+            return (List<EnumConstant>) MethodHandles.lookup()
+                .findStatic(clazz, Constants.INJECTED_GET_ORIGINAL_ENUM_CONSTANTS.name(), MethodType.methodType(List.class))
+                .invokeExact();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public static <T extends Enum<T>> EnumConstant getOriginalEnumConstant(Class<T> clazz, String constantName) {
+        return getOriginalEnumConstants(clazz)
+            .stream()
+            .filter(constant -> constant.name().equals(constantName))
+            .findAny()
+            .orElse(null);
+    }
+
+    /**
      * Resets all mechanisms.
      */
     public static void resetAll() {

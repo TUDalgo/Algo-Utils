@@ -1,12 +1,10 @@
 package org.tudalgo.algoutils.transform;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.objectweb.asm.Opcodes;
 import org.sourcegrade.jagr.api.testing.extension.JagrExecutionCondition;
 import org.tudalgo.algoutils.student.annotation.ForceSignature;
-import org.tudalgo.algoutils.transform.classes.MissingClassVisitor;
-import org.tudalgo.algoutils.transform.classes.SolutionClassNode;
-import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
-import org.tudalgo.algoutils.transform.classes.SubmissionClassVisitor;
+import org.tudalgo.algoutils.transform.classes.*;
 import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
 import org.objectweb.asm.ClassReader;
@@ -147,7 +145,12 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
             // TODO: fix this for regular JUnit run
             transformationContext.setSubmissionClassLoader(null);
         }
-        reader.accept(new SubmissionClassVisitor(writer, transformationContext, reader.getClassName()), 0);
+
+        if ((reader.getAccess() & Opcodes.ACC_ENUM) != 0) {
+            reader.accept(new SubmissionEnumClassVisitor(writer, transformationContext, reader.getClassName()), 0);
+        } else {
+            reader.accept(new SubmissionClassVisitor(writer, transformationContext, reader.getClassName()), 0);
+        }
     }
 
     @Override
