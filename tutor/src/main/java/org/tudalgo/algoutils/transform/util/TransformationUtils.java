@@ -64,6 +64,17 @@ public final class TransformationUtils {
     }
 
     /**
+     * Whether the given type is a
+     * <a href="https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html#jvms-2.11.1">category 2 computational type</a>.
+     *
+     * @param type the type to check
+     * @return true, if the given type is a category 2 computational type, otherwise false
+     */
+    public static boolean isCategory2Type(Type type) {
+        return type.getSort() == Type.LONG || type.getSort() == Type.DOUBLE;
+    }
+
+    /**
      * Calculates the true index of variables in the locals array.
      * Variables with type long or double occupy two slots in the locals array,
      * so the "expected" or "natural" index of these variables might be shifted.
@@ -75,7 +86,7 @@ public final class TransformationUtils {
     public static int getLocalsIndex(Type[] types, int index) {
         int localsIndex = 0;
         for (int i = 0; i < index; i++) {
-            localsIndex += (types[i].getSort() == Type.LONG || types[i].getSort() == Type.DOUBLE) ? 2 : 1;
+            localsIndex += isCategory2Type(types[i]) ? 2 : 1;
         }
         return localsIndex;
     }
