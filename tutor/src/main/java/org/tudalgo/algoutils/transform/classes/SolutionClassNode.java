@@ -71,7 +71,7 @@ public class SolutionClassNode extends ClassNode {
 
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-        FieldHeader fieldHeader = new FieldHeader(className, access, name, descriptor, signature);
+        FieldHeader fieldHeader = new FieldHeader(className, TransformationUtils.transformAccess(access), name, descriptor, signature);
         FieldNode fieldNode = (FieldNode) super.visitField(TransformationUtils.transformAccess(access), name, descriptor, signature, value);
         fields.put(fieldHeader, fieldNode);
         return fieldNode;
@@ -83,7 +83,7 @@ public class SolutionClassNode extends ClassNode {
             name += "$solution";
         }
         MethodNode methodNode = getMethodNode(access, name, descriptor, signature, exceptions);
-        methods.put(new MethodHeader(className, access, name, descriptor, signature, exceptions), methodNode);
+        methods.put(new MethodHeader(className, TransformationUtils.transformAccess(access), name, descriptor, signature, exceptions), methodNode);
         return methodNode;
     }
 
