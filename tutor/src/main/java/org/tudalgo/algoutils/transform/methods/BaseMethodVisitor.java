@@ -8,9 +8,7 @@ import org.tudalgo.algoutils.transform.util.*;
 import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
 import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -115,7 +113,7 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
 
         // intercept parameters
         delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_HEADER));
-        injectInvocation(Type.getArgumentTypes(computedMethodHeader.descriptor()));
+        injectInvocation(Type.getArgumentTypes(computedMethodHeader.descriptor()), true);
         Constants.SUBMISSION_EXECUTION_HANDLER_INTERNAL_ADD_INVOCATION.toMethodInsn(delegate, false);
     }
 
@@ -223,7 +221,7 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         }
 
         delegate.visitVarInsn(ALOAD, getLocalsIndex(LocalsObject.METHOD_SUBSTITUTION));
-        injectInvocation(Type.getArgumentTypes(computedMethodHeader.descriptor()));
+        injectInvocation(Type.getArgumentTypes(computedMethodHeader.descriptor()), true);
         Constants.METHOD_SUBSTITUTION_EXECUTE.toMethodInsn(delegate, true);
         Type returnType = Type.getReturnType(computedMethodHeader.descriptor());
         unboxType(delegate, returnType);
@@ -268,8 +266,9 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
      * Builds an {@link Invocation} in bytecode.
      *
      * @param argumentTypes an array of parameter types
+     * @param useLocals     whether to use the locals array or the stack
      */
-    protected void injectInvocation(Type[] argumentTypes) {
+    protected void injectInvocation(Type[] argumentTypes, boolean useLocals) {
         Type threadType = Type.getType(Thread.class);
         Type stackTraceElementArrayType = Type.getType(StackTraceElement[].class);
 
@@ -293,12 +292,55 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
         } else {
             Constants.INVOCATION_CONSTRUCTOR.toMethodInsn(delegate, false);
         }
-        // load parameter with opcode (ALOAD, ILOAD, etc.) for type and ignore "this", if it exists
-        for (int i = 0; i < argumentTypes.length; i++) {
-            delegate.visitInsn(DUP);
-            delegate.visitVarInsn(argumentTypes[i].getOpcode(ILOAD), TransformationUtils.getLocalsIndex(argumentTypes, i) + (isStatic ? 0 : 1));
-            boxType(delegate, argumentTypes[i]);
-            Constants.INVOCATION_CONSTRUCTOR_ADD_PARAMETER.toMethodInsn(delegate, false);
+        if (useLocals) {
+            // load parameter with opcode (ALOAD, ILOAD, etc.) for type and ignore "this", if it exists
+            for (int i = 0; i < argumentTypes.length; i++) {
+                delegate.visitInsn(DUP);
+                delegate.visitVarInsn(argumentTypes[i].getOpcode(ILOAD), TransformationUtils.getLocalsIndex(argumentTypes, i) + (isStatic ? 0 : 1));
+                boxType(delegate, argumentTypes[i]);
+                Constants.INVOCATION_CONSTRUCTOR_ADD_PARAMETER.toMethodInsn(delegate, false);
+            }
+        } else {
+            Label invocationStart = new Label();
+            Label invocationEnd = new Label();
+            Label[] paramStartLabels = Stream.generate(Label::new).limit(argumentTypes.length).toArray(Label[]::new);
+            Label[] paramEndLabels = Stream.generate(Label::new).limit(argumentTypes.length).toArray(Label[]::new);
+            Map<Integer, Integer> localsIndexes = new HashMap<>();
+
+            delegate.visitVarInsn(ASTORE, fullFrameLocals.size());
+            delegate.visitLabel(invocationStart);
+            for (int i = argumentTypes.length - 1, category2Types = 0; i >= 0; i--) {
+                Type argType = argumentTypes[i];
+                localsIndexes.put(i, fullFrameLocals.size() + category2Types + argumentTypes.length - i);
+                delegate.visitVarInsn(argType.getOpcode(ISTORE), localsIndexes.get(i));
+                delegate.visitLabel(paramStartLabels[i]);
+                if (TransformationUtils.isCategory2Type(argType)) category2Types++;
+            }
+
+            for (int i = 0; i < argumentTypes.length; i++) {
+                Type argType = argumentTypes[i];
+
+                delegate.visitVarInsn(ALOAD, fullFrameLocals.size());
+                delegate.visitVarInsn(argType.getOpcode(ILOAD), localsIndexes.get(i));
+                delegate.visitInsn(TransformationUtils.isCategory2Type(argType) ? DUP2_X1 : DUP_X1);
+                boxType(delegate, argType);
+                Constants.INVOCATION_CONSTRUCTOR_ADD_PARAMETER.toMethodInsn(delegate, false);
+                delegate.visitLabel(paramEndLabels[i]);
+                delegate.visitLocalVariable("var%d$injected".formatted(i),
+                    argType.getDescriptor(),
+                    null,
+                    paramStartLabels[i],
+                    paramEndLabels[i],
+                    localsIndexes.get(i));
+            }
+            delegate.visitVarInsn(ALOAD, fullFrameLocals.size());
+            delegate.visitLabel(invocationEnd);
+            delegate.visitLocalVariable("invocation$injected",
+                Constants.INVOCATION_TYPE.getDescriptor(),
+                null,
+                invocationStart,
+                invocationEnd,
+                fullFrameLocals.size());
         }
     }
 
