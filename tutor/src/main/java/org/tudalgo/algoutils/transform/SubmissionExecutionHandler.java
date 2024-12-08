@@ -1,5 +1,6 @@
 package org.tudalgo.algoutils.transform;
 
+import org.objectweb.asm.Type;
 import org.tudalgo.algoutils.transform.classes.SubmissionClassVisitor;
 import org.tudalgo.algoutils.transform.util.*;
 import org.tudalgo.algoutils.transform.util.headers.ClassHeader;
@@ -10,6 +11,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Executable;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * A singleton class to configure the way a submission is executed.
@@ -110,6 +112,13 @@ public class SubmissionExecutionHandler {
         }
     }
 
+    public static FieldHeader getOriginalFieldHeader(Class<?> clazz, String fieldName) {
+        return getOriginalFieldHeaders(clazz).stream()
+            .filter(fieldHeader -> fieldHeader.name().equals(fieldName))
+            .findAny()
+            .orElse(null);
+    }
+
     /**
      * Returns the set of original method headers for the given submission class.
      *
@@ -127,6 +136,23 @@ public class SubmissionExecutionHandler {
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
+    }
+
+    public static MethodHeader getOriginalMethodHeader(Class<?> clazz, Class<?>... parameterTypes) {
+        return getOriginalMethodHeader(clazz, "<init>", parameterTypes);
+    }
+
+    public static MethodHeader getOriginalMethodHeader(Class<?> clazz,
+                                                       String methodName,
+                                                       Class<?>... parameterTypes) {
+        String parameterDescriptor = Arrays.stream(parameterTypes)
+            .map(Type::getDescriptor)
+            .collect(Collectors.joining("", "(", ")"));
+        return getOriginalMethodHeaders(clazz).stream()
+            .filter(methodHeader -> methodHeader.name().equals(methodName) &&
+                methodHeader.descriptor().startsWith(parameterDescriptor))
+            .findAny()
+            .orElse(null);
     }
 
     /**
