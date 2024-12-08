@@ -9,6 +9,7 @@ import org.tudalgo.algoutils.transform.util.headers.Header;
 import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
@@ -25,6 +26,7 @@ public final class Constants {
     public static final Type STRING_ARRAY_TYPE = Type.getType(String[].class);
     public static final Type SET_TYPE = Type.getType(Set.class);
     public static final Type LIST_TYPE = Type.getType(List.class);
+    public static final Type MAP_TYPE = Type.getType(Map.class);
 
     public static final Type HEADER_TYPE = Type.getType(Header.class);
     public static final Type CLASS_HEADER_TYPE = Type.getType(ClassHeader.class);
@@ -39,6 +41,11 @@ public final class Constants {
 
     // Fields used in bytecode
 
+    public static final FieldHeader INJECTED_ORIGINAL_STATIC_FIELD_VALUES = new FieldHeader(null,
+        ACC_PRIVATE | ACC_STATIC,
+        "originalStaticFieldValues$injected",
+        MAP_TYPE.getDescriptor(),
+        "L%s<%s%s>;".formatted(MAP_TYPE.getInternalName(), STRING_TYPE.getDescriptor(), OBJECT_TYPE.getDescriptor()));
     public static final FieldHeader INJECTED_ORIGINAL_ENUM_CONSTANTS = new FieldHeader(null,
         ACC_PRIVATE | ACC_STATIC,
         "originalEnumConstants$injected",
@@ -64,6 +71,12 @@ public final class Constants {
         "getOriginalMethodHeaders",
         Type.getMethodDescriptor(SET_TYPE),
         "()L%s<%s>;".formatted(SET_TYPE.getInternalName(), METHOD_HEADER_TYPE.getDescriptor()),
+        null);
+    public static final MethodHeader INJECTED_GET_ORIGINAL_STATIC_FIELD_VALUES = new MethodHeader(null,
+        ACC_PUBLIC | ACC_STATIC,
+        "getOriginalStaticFieldValues",
+        Type.getMethodDescriptor(MAP_TYPE),
+        "()L%s<%s%s>;".formatted(MAP_TYPE.getInternalName(), STRING_TYPE.getDescriptor(), OBJECT_TYPE.getDescriptor()),
         null);
     public static final MethodHeader INJECTED_GET_ORIGINAL_ENUM_CONSTANTS = new MethodHeader(null,
         ACC_PUBLIC | ACC_STATIC,

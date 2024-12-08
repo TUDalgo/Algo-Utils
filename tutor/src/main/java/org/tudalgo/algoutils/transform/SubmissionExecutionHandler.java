@@ -182,6 +182,23 @@ public class SubmissionExecutionHandler {
             .orElse(null);
     }
 
+    @SuppressWarnings("unchecked")
+    public static Map<String, ?> getOriginalStaticFieldValues(Class<?> clazz) {
+        try {
+            return (Map<String, ?>) MethodHandles.lookup()
+                .findStatic(clazz, Constants.INJECTED_GET_ORIGINAL_STATIC_FIELD_VALUES.name(), MethodType.methodType(Map.class))
+                .invokeExact();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public static Object getOriginalStaticFieldValue(Class<?> clazz, String fieldName) {
+        return getOriginalStaticFieldValues(clazz).get(fieldName);
+    }
+
     /**
      * Resets all mechanisms.
      */

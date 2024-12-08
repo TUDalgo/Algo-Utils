@@ -1,8 +1,10 @@
 package org.tudalgo.algoutils.transform.classes;
 
+import kotlin.Pair;
 import org.objectweb.asm.tree.MethodNode;
 import org.tudalgo.algoutils.transform.SolutionMergingClassTransformer;
 import org.tudalgo.algoutils.transform.SubmissionExecutionHandler;
+import org.tudalgo.algoutils.transform.methods.ClassInitVisitor;
 import org.tudalgo.algoutils.transform.methods.LambdaMethodVisitor;
 import org.tudalgo.algoutils.transform.methods.MissingMethodVisitor;
 import org.tudalgo.algoutils.transform.methods.SubmissionMethodVisitor;
@@ -13,6 +15,7 @@ import org.tudalgo.algoutils.transform.util.headers.FieldHeader;
 import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -118,6 +121,8 @@ public class SubmissionClassVisitor extends ClassVisitor {
     protected final Set<FieldHeader> visitedFields = new HashSet<>();
     protected final Set<MethodHeader> visitedMethods = new HashSet<>();
 
+    protected final Map<String, Pair<Type, Object>> staticFieldValues = new HashMap<>();
+
     /**
      * Constructs a new {@link SubmissionClassVisitor} instance.
      *
@@ -150,6 +155,9 @@ public class SubmissionClassVisitor extends ClassVisitor {
             .toArray(String[]::new);
 
         classHeader.visitClass(getDelegate(), version, additionalInterfaces);
+        if (submissionClassInfo.getOriginalMethodHeaders().stream().anyMatch(mh -> mh.name().equals("<clinit>"))) {
+            Constants.INJECTED_ORIGINAL_STATIC_FIELD_VALUES.toFieldVisitor(getDelegate(), null);
+        }
     }
 
     /**
@@ -166,6 +174,9 @@ public class SubmissionClassVisitor extends ClassVisitor {
                 name + "$submission",
                 transformationContext.toComputedDescriptor(descriptor),
                 signature);
+        }
+        if (value != null) {
+            staticFieldValues.put(fieldHeader.name(), new Pair<>(Type.getType(fieldHeader.descriptor()), value));
         }
         visitedFields.add(fieldHeader);
         return fieldHeader.toFieldVisitor(getDelegate(), value);
@@ -189,6 +200,12 @@ public class SubmissionClassVisitor extends ClassVisitor {
                 transformationContext,
                 submissionClassInfo,
                 methodHeader);
+        } else if (name.equals("<clinit>")) {
+            MethodHeader methodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
+            visitedMethods.add(methodHeader);
+            return new ClassInitVisitor(methodHeader.toMethodVisitor(getDelegate()),
+                transformationContext,
+                submissionClassInfo);
         } else {
             MethodHeader originalMethodHeader = new MethodHeader(originalClassHeader.name(), access, name, descriptor, signature, exceptions);
             MethodHeader computedMethodHeader = submissionClassInfo.getComputedMethodHeader(name, descriptor);
@@ -250,6 +267,23 @@ public class SubmissionClassVisitor extends ClassVisitor {
         injectClassMetadata();
         injectFieldMetadata();
         injectMethodMetadata();
+        if (submissionClassInfo.getOriginalMethodHeaders().stream().anyMatch(mh -> mh.name().equals("<clinit>"))) {
+            injectStaticFieldValuesGetter();
+        } else if (!staticFieldValues.isEmpty()) {
+            FieldHeader fieldHeader = Constants.INJECTED_ORIGINAL_STATIC_FIELD_VALUES;
+            Type hashMapType = Type.getType(HashMap.class);
+
+            fieldHeader.toFieldVisitor(getDelegate(), null);
+            MethodVisitor mv = super.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+            mv.visitTypeInsn(NEW, hashMapType.getInternalName());
+            mv.visitInsn(DUP);
+            mv.visitMethodInsn(INVOKESPECIAL, hashMapType.getInternalName(), "<init>", "()V", false);
+            mv.visitFieldInsn(PUTSTATIC, computedClassHeader.name(), fieldHeader.name(), fieldHeader.descriptor());
+            mv.visitInsn(RETURN);
+            mv.visitMaxs(2, 0);
+
+            injectStaticFieldValuesGetter();
+        }
 
         transformationContext.addVisitedClass(computedClassHeader.name());
         super.visitEnd();
@@ -335,5 +369,41 @@ public class SubmissionClassVisitor extends ClassVisitor {
             true);
         mv.visitInsn(ARETURN);
         mv.visitMaxs(maxStack, 0);
+    }
+
+    private void injectStaticFieldValuesGetter() {
+        Type hashMapType = Type.getType(HashMap.class);
+        MethodVisitor mv = Constants.INJECTED_GET_ORIGINAL_STATIC_FIELD_VALUES.toMethodVisitor(getDelegate());
+        AtomicInteger maxStack = new AtomicInteger();
+
+        mv.visitTypeInsn(NEW, hashMapType.getInternalName());
+        mv.visitInsn(DUP);
+        mv.visitFieldInsn(GETSTATIC,
+            computedClassHeader.name(),
+            Constants.INJECTED_ORIGINAL_STATIC_FIELD_VALUES.name(),
+            Constants.INJECTED_ORIGINAL_STATIC_FIELD_VALUES.descriptor());
+        maxStack.set(3);
+        mv.visitMethodInsn(INVOKESPECIAL,
+            hashMapType.getInternalName(),
+            "<init>",
+            Type.getMethodDescriptor(Type.VOID_TYPE, Constants.MAP_TYPE),
+            false);
+
+        staticFieldValues.forEach((name, pair) -> {
+            mv.visitInsn(DUP);
+            mv.visitLdcInsn(name);
+            mv.visitLdcInsn(pair.getSecond());
+            TransformationUtils.boxType(mv, pair.getFirst());
+            mv.visitMethodInsn(INVOKEINTERFACE,
+                Constants.MAP_TYPE.getInternalName(),
+                "put",
+                Type.getMethodDescriptor(Constants.OBJECT_TYPE, Constants.OBJECT_TYPE, Constants.OBJECT_TYPE),
+                true);
+            mv.visitInsn(POP);
+            maxStack.set(4);
+        });
+
+        mv.visitInsn(ARETURN);
+        mv.visitMaxs(maxStack.get(), 0);
     }
 }
