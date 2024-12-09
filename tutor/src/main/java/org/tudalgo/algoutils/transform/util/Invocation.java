@@ -253,7 +253,7 @@ public class Invocation {
                 case Opcodes.INVOKESTATIC -> lookup.findStatic(declaringClass, methodHeader.name(), methodType);
                 default -> throw new IllegalArgumentException("Unsupported opcode: " + methodHeader.getOpcode());
             };
-            return methodHandle.invoke(invocationArgs);
+            return methodHandle.invokeWithArguments(invocationArgs);
         } catch (Throwable e) {
             throw new RuntimeException(e);
         } finally {

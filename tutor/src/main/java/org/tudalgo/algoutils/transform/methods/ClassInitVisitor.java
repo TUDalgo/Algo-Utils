@@ -68,10 +68,10 @@ public class ClassInitVisitor extends BaseMethodVisitor {
                 computedMethodHeader.owner(),
                 originalStaticFieldValuesHeader.name(),
                 originalStaticFieldValuesHeader.descriptor());
-            delegate.visitInsn(isCategory2Type ? DUP2_X1 : DUP_X1);
+            delegate.visitInsn(isCategory2Type ? DUP_X2 : DUP_X1);
             delegate.visitInsn(POP);
             delegate.visitLdcInsn(computedFieldHeader.name());
-            delegate.visitInsn(isCategory2Type ? DUP2_X1 : DUP_X1);
+            delegate.visitInsn(isCategory2Type ? DUP_X2 : DUP_X1);
             delegate.visitInsn(POP);
             TransformationUtils.boxType(delegate, type);
             delegate.visitMethodInsn(INVOKEINTERFACE,

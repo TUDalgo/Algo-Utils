@@ -415,7 +415,10 @@ public abstract class BaseMethodVisitor extends MethodVisitor {
                     computedFieldHeader.name(),
                     computedFieldHeader.descriptor());
             } else { // if incompatible
-                delegate.visitFieldInsn(opcode, computedFieldHeader.owner(), name + "$submission", computedFieldHeader.descriptor());
+                delegate.visitFieldInsn(opcode,
+                    computedFieldHeader.owner(),
+                    name + "$submission",
+                    transformationContext.toComputedDescriptor(descriptor));
             }
         }
     }

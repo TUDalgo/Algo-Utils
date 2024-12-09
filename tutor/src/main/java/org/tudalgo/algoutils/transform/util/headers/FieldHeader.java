@@ -2,7 +2,6 @@ package org.tudalgo.algoutils.transform.util.headers;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.tudalgo.algoutils.transform.util.Constants;
 import org.tudalgo.algoutils.transform.util.TransformationUtils;
@@ -63,7 +62,7 @@ public record FieldHeader(String owner, int access, String name, String descript
      * @return the resulting {@link FieldVisitor}
      */
     public FieldVisitor toFieldVisitor(ClassVisitor delegate, Object value) {
-        return delegate.visitField(access & ~Opcodes.ACC_FINAL, name, descriptor, signature, value);
+        return delegate.visitField(access, name, descriptor, signature, value);
     }
 
     /**

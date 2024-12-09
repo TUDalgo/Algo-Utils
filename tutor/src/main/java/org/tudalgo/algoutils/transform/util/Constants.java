@@ -12,9 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
+import static org.objectweb.asm.Opcodes.ACC_FINAL;
 
 public final class Constants {
 
@@ -42,12 +42,12 @@ public final class Constants {
     // Fields used in bytecode
 
     public static final FieldHeader INJECTED_ORIGINAL_STATIC_FIELD_VALUES = new FieldHeader(null,
-        ACC_PRIVATE | ACC_STATIC,
+        ACC_PUBLIC | ACC_STATIC | ACC_FINAL,
         "originalStaticFieldValues$injected",
         MAP_TYPE.getDescriptor(),
         "L%s<%s%s>;".formatted(MAP_TYPE.getInternalName(), STRING_TYPE.getDescriptor(), OBJECT_TYPE.getDescriptor()));
     public static final FieldHeader INJECTED_ORIGINAL_ENUM_CONSTANTS = new FieldHeader(null,
-        ACC_PRIVATE | ACC_STATIC,
+        ACC_PUBLIC | ACC_STATIC | ACC_FINAL,
         "originalEnumConstants$injected",
         LIST_TYPE.getDescriptor(),
         "L%s<%s>;".formatted(LIST_TYPE.getInternalName(), ENUM_CONSTANT_TYPE.getDescriptor()));

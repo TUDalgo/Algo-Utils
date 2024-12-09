@@ -130,7 +130,10 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
                         .readValue(submissionClassLoader.getResourceAsStream("submission-info.json"), SubmissionInfo.class)
                         .sourceSets()
                         .stream()
-                        .flatMap(sourceSet -> sourceSet.files().get("java").stream())
+                        .flatMap(sourceSet -> {
+                            List<String> classNames = sourceSet.files().get("java");
+                            return classNames != null ? classNames.stream() : null;
+                        })
                         .map(submissionClassName -> submissionClassName.replaceAll("\\.java$", ""))
                         .collect(Collectors.toSet());
                     transformationContext.setSubmissionClassNames(submissionClassNames);
@@ -163,7 +166,7 @@ public class SolutionMergingClassTransformer implements ClassTransformer {
             .stream()
             .filter(entry -> !visitedClasses.contains(entry.getKey()))
             .forEach(entry -> {
-                ClassWriter writer = new ClassWriter(0);
+                ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
                 entry.getValue().accept(new MissingClassVisitor(writer, transformationContext, entry.getValue()));
                 missingClasses.put(entry.getKey().replace('/', '.'), writer.toByteArray());
             });

@@ -175,6 +175,13 @@ public class SubmissionClassVisitor extends ClassVisitor {
                 transformationContext.toComputedDescriptor(descriptor),
                 signature);
         }
+        if ((computedClassHeader.access() & ACC_INTERFACE) != 0) {
+            fieldHeader = new FieldHeader(fieldHeader.owner(),
+                fieldHeader.access() | ACC_FINAL,
+                fieldHeader.name(),
+                fieldHeader.descriptor(),
+                fieldHeader.signature());
+        }
         if (value != null) {
             staticFieldValues.put(fieldHeader.name(), new Pair<>(Type.getType(fieldHeader.descriptor()), value));
         }

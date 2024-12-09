@@ -56,7 +56,7 @@ public class SubmissionEnumClassVisitor extends SubmissionClassVisitor {
 
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-        if ((access & ACC_ENUM) != 0) {
+        if ((access & ACC_ENUM) != 0 && solutionClassNode != null) {
             enumConstants.add(name);
             return null;
         } else {
@@ -117,13 +117,19 @@ public class SubmissionEnumClassVisitor extends SubmissionClassVisitor {
 
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-            if (!(owner.equals(originalClassHeader.name()) && (enumConstants.contains(name) || name.equals("$VALUES")))) {
+            if (!(owner.equals(originalClassHeader.name()) && (enumConstants.contains(name) || name.equals("$VALUES"))) ||
+                solutionClassNode == null) {
                 super.visitFieldInsn(opcode, owner, name, descriptor);
             }
         }
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
+            if (solutionClassNode == null) {
+                super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                return;
+            }
+
             if (opcode == INVOKESPECIAL && owner.equals(originalClassHeader.name()) && name.equals("<init>")) {
                 Type[] argTypes = Type.getArgumentTypes(descriptor);
                 Label invocationStart = new Label();

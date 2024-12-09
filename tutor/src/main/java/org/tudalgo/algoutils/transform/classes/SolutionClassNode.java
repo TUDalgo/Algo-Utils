@@ -1,10 +1,7 @@
 package org.tudalgo.algoutils.transform.classes;
 
+import org.objectweb.asm.*;
 import org.tudalgo.algoutils.transform.util.*;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -100,7 +97,7 @@ public class SolutionClassNode extends ClassNode {
      * @return a new {@link MethodNode}
      */
     private MethodNode getMethodNode(int access, String name, String descriptor, String signature, String[] exceptions) {
-        return new MethodNode(ASM9, TransformationUtils.transformAccess(access), name, descriptor, signature, exceptions) {
+        MethodNode methodNode = new MethodNode(ASM9, TransformationUtils.transformAccess(access), name, descriptor, signature, exceptions) {
             @Override
             public void visitMethodInsn(int opcodeAndSource, String owner, String name, String descriptor, boolean isInterface) {
                 MethodHeader methodHeader = new MethodHeader(owner, name, descriptor);
@@ -137,5 +134,8 @@ public class SolutionClassNode extends ClassNode {
                     .toArray());
             }
         };
+
+        super.methods.add(methodNode);
+        return methodNode;
     }
 }

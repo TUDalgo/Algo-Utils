@@ -50,6 +50,10 @@ public class MissingClassVisitor extends ClassVisitor {
         injectMetadataMethod(Constants.INJECTED_GET_ORIGINAL_CLASS_HEADER);
         injectMetadataMethod(Constants.INJECTED_GET_ORIGINAL_FIELD_HEADERS);
         injectMetadataMethod(Constants.INJECTED_GET_ORIGINAL_METHODS_HEADERS);
+        injectMetadataMethod(Constants.INJECTED_GET_ORIGINAL_STATIC_FIELD_VALUES);
+        if ((solutionClassNode.access & Opcodes.ACC_ENUM) != 0) {
+            injectMetadataMethod(Constants.INJECTED_GET_ORIGINAL_ENUM_CONSTANTS);
+        }
 
         super.visitEnd();
     }
