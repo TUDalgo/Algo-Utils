@@ -7,4 +7,4 @@ asm = "org.ow2.asm:asm:9.7.1"
 dokkaKotlinAsJavaPlugin = "org.jetbrains.dokka:kotlin-as-java-plugin:1.9.20"
 dokkaBase = "org.jetbrains.dokka:dokka-base:1.9.20"
 [plugins]
-dokka = "org.jetbrains.dokka:1.9.20"
+dokka = "org.jetbrains.dokka:2.0.0"
