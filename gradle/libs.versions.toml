@@ -5,6 +5,6 @@ mockito = "org.mockito:mockito-core:5.14.1"
 junit = "org.junit.jupiter:junit-jupiter:5.11.2"
 asm = "org.ow2.asm:asm:9.7.1"
 dokkaKotlinAsJavaPlugin = "org.jetbrains.dokka:kotlin-as-java-plugin:1.9.20"
-dokkaBase = "org.jetbrains.dokka:dokka-base:1.9.20"
+dokkaBase = "org.jetbrains.dokka:dokka-base:2.0.0"
 [plugins]
 dokka = "org.jetbrains.dokka:1.9.20"
