@@ -166,6 +166,11 @@ public class SubmissionClassVisitor extends ClassVisitor {
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
         FieldHeader fieldHeader = submissionClassInfo.getComputedFieldHeader(name);
+        final FieldHeader finalFieldHeader = fieldHeader;
+        Object fieldValue = submissionClassInfo.getSolutionClass()
+            .map(solutionClassNode -> solutionClassNode.getFields().get(finalFieldHeader))
+            .map(fieldNode -> fieldNode.value)
+            .orElse(value);
 
         if (!TransformationUtils.contextIsCompatible(access, fieldHeader.access()) ||
             !transformationContext.descriptorIsCompatible(descriptor, fieldHeader.descriptor())) {
@@ -174,6 +179,7 @@ public class SubmissionClassVisitor extends ClassVisitor {
                 name + "$submission",
                 transformationContext.toComputedDescriptor(descriptor),
                 signature);
+            fieldValue = value;
         }
         if ((computedClassHeader.access() & ACC_INTERFACE) != 0) {
             fieldHeader = new FieldHeader(fieldHeader.owner(),
@@ -186,7 +192,7 @@ public class SubmissionClassVisitor extends ClassVisitor {
             staticFieldValues.put(fieldHeader.name(), new Pair<>(Type.getType(fieldHeader.descriptor()), value));
         }
         visitedFields.add(fieldHeader);
-        return fieldHeader.toFieldVisitor(getDelegate(), value);
+        return fieldHeader.toFieldVisitor(getDelegate(), fieldValue);
     }
 
     /**
@@ -262,6 +268,7 @@ public class SubmissionClassVisitor extends ClassVisitor {
                     MethodHeader methodHeader = entry.getKey();
                     MethodNode methodNode = entry.getValue();
 
+                    if (methodHeader.name().equals("<clinit>")) return;
                     if (TransformationUtils.isLambdaMethod(methodHeader.access(), methodHeader.name())) {
                         methodNode.accept(getDelegate());
                     } else {
@@ -274,22 +281,32 @@ public class SubmissionClassVisitor extends ClassVisitor {
         injectClassMetadata();
         injectFieldMetadata();
         injectMethodMetadata();
-        if (submissionClassInfo.getOriginalMethodHeaders().stream().anyMatch(mh -> mh.name().equals("<clinit>"))) {
-            injectStaticFieldValuesGetter();
-        } else if (!staticFieldValues.isEmpty()) {
+        injectStaticFieldValuesGetter();
+        if (submissionClassInfo.getOriginalMethodHeaders().stream().noneMatch(mh -> mh.name().equals("<clinit>"))) {
+            Optional<MethodNode> solutionMethod = solutionClass.flatMap(solutionClassNode -> solutionClassNode.getMethods()
+                    .entrySet()
+                    .stream()
+                    .filter(methodHeader -> methodHeader.getKey().name().equals("<clinit>"))
+                    .findAny())
+                .map(Map.Entry::getValue);
+            MethodVisitor mv = super.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
             FieldHeader fieldHeader = Constants.INJECTED_ORIGINAL_STATIC_FIELD_VALUES;
             Type hashMapType = Type.getType(HashMap.class);
 
             fieldHeader.toFieldVisitor(getDelegate(), null);
-            MethodVisitor mv = super.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
             mv.visitTypeInsn(NEW, hashMapType.getInternalName());
             mv.visitInsn(DUP);
             mv.visitMethodInsn(INVOKESPECIAL, hashMapType.getInternalName(), "<init>", "()V", false);
             mv.visitFieldInsn(PUTSTATIC, computedClassHeader.name(), fieldHeader.name(), fieldHeader.descriptor());
-            mv.visitInsn(RETURN);
-            mv.visitMaxs(2, 0);
 
-            injectStaticFieldValuesGetter();
+            if (solutionMethod.isPresent()) {
+                MethodNode methodNode = solutionMethod.get();
+                methodNode.maxStack = Math.max(methodNode.maxStack, 2);
+                methodNode.accept(mv);
+            } else {
+                mv.visitInsn(RETURN);
+                mv.visitMaxs(2, 0);
+            }
         }
 
         transformationContext.addVisitedClass(computedClassHeader.name());

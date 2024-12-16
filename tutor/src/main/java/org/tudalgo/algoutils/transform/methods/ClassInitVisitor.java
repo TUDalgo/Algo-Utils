@@ -2,7 +2,9 @@ package org.tudalgo.algoutils.transform.methods;
 
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.tudalgo.algoutils.transform.classes.SolutionClassNode;
 import org.tudalgo.algoutils.transform.classes.SubmissionClassInfo;
 import org.tudalgo.algoutils.transform.util.Constants;
 import org.tudalgo.algoutils.transform.util.TransformationContext;
@@ -12,13 +14,13 @@ import org.tudalgo.algoutils.transform.util.headers.MethodHeader;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Set;
+import java.util.Map;
 
 import static org.objectweb.asm.Opcodes.*;
 
 public class ClassInitVisitor extends BaseMethodVisitor {
 
-    private final Set<FieldHeader> solutionFields;
+    private final Map<FieldHeader, FieldNode> solutionFields;
     private final MethodNode solutionMethodNode;
 
     public ClassInitVisitor(MethodVisitor delegate,
@@ -31,8 +33,8 @@ public class ClassInitVisitor extends BaseMethodVisitor {
             getClassInitHeader(submissionClassInfo.getComputedClassHeader().name()));
 
         this.solutionFields = submissionClassInfo.getSolutionClass()
-            .map(solutionClassNode -> solutionClassNode.getFields().keySet())
-            .orElse(Collections.emptySet());
+            .map(SolutionClassNode::getFields)
+            .orElse(Collections.emptyMap());
         this.solutionMethodNode = submissionClassInfo.getSolutionClass()
             .map(solutionClassNode -> solutionClassNode.getMethods().get(computedMethodHeader))
             .orElse(null);
@@ -81,8 +83,16 @@ public class ClassInitVisitor extends BaseMethodVisitor {
                 true);
             delegate.visitInsn(POP);
 
-            if (solutionFields.contains(computedFieldHeader)) {
+            if (solutionFields.containsKey(computedFieldHeader) && solutionMethodNode != null) {
+                FieldNode solutionField = solutionFields.get(computedFieldHeader);
                 delegate.visitInsn(isCategory2Type ? POP2 : POP);
+                if (solutionField.value != null) {
+                    delegate.visitLdcInsn(solutionField.value);
+                    delegate.visitFieldInsn(PUTSTATIC,
+                        computedMethodHeader.owner(),
+                        computedFieldHeader.name(),
+                        computedFieldHeader.descriptor());
+                }
                 return;
             }
         }
