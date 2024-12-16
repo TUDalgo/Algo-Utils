@@ -90,6 +90,23 @@ public record FieldHeader(String owner, int access, String name, String descript
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public <T> T getValue(Object instance) {
+        try {
+            return (T) TransformationUtils.getClassForType(Type.getObjectType(owner)).getDeclaredField(name).get(instance);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void setValue(Object instance, Object value) {
+        try {
+            TransformationUtils.getClassForType(Type.getObjectType(owner)).getDeclaredField(name).set(instance, value);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Returns a new field header describing the specified field.
      *
