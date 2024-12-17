@@ -15,6 +15,22 @@ public record BasicProperty(
     Object value
 ) implements Property {
 
+    public BasicProperty {
+        // Test validity when creating so that a faulty property gets spotted early.
+        if(value.getClass().isArray()) {
+            // Get most inner array type
+            Class<?> elementType = value.getClass().getComponentType();
+            while(elementType.isArray()) {
+                elementType = elementType.getComponentType();
+            }
+            if(elementType.isPrimitive()) {
+                if(elementType != int.class && elementType != long.class && elementType != double.class)
+                    throw new IllegalArgumentException(
+                        "Context Property only supports arrays of types int, long, double, Object");
+            }
+        }
+    }
+
     /**
      * <p>Returns true iff the object is a property with the same key. </p>
      *
