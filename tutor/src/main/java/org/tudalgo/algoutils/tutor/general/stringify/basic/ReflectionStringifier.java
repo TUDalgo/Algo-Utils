@@ -106,7 +106,7 @@ public final class ReflectionStringifier implements Stringifier {
         // register type handlers for arrays
         registerObjectHandler(
             Matcher.of(e -> e.getClass().isArray(), "Array"),
-            e -> Arrays.stream((Object[]) e)
+            e -> getArrayStream(e)
                 .map(this::stringifyOrElseNull)
                 .toList()
                 .toString()
@@ -178,5 +178,28 @@ public final class ReflectionStringifier implements Stringifier {
         registerTypeHandler(
             CtNamedElement.class, e -> ((CtNamedElement) e).getSimpleName()
         );
+    }
+
+    /**
+     * Converts an Object of Type array to its corresponding Stream. Assumes the input to actually be an array.
+     * @param e the object to turn into a stream
+     * @return the corresponding stream
+     */
+    private Stream<?> getArrayStream(Object e) {
+        Class<?> componentType = e.getClass().getComponentType();
+        if(!componentType.isPrimitive()) {
+            return Arrays.stream((Object[]) e);
+        }
+        // Streams only support int, long and double everything else would need to be cast.
+        if(componentType == int.class) {
+            return Arrays.stream((int[])e).boxed();
+        } else if(componentType == long.class) {
+            return Arrays.stream((long[]) e).boxed();
+        } else if(componentType == double.class) {
+            return Arrays.stream((double[]) e).boxed();
+        }
+
+        throw new IllegalArgumentException(
+            "Can only cast Arrays of primitive types int, long and double. Got: " + componentType);
     }
 }

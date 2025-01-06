@@ -14,6 +14,7 @@ dependencies {
     api(libs.jagr)
     api(libs.mockito)
     api(libs.asm)
+    api(libs.asmTree)
     testImplementation(libs.junit)
     dokkaPlugin(libs.dokkaKotlinAsJavaPlugin)
 }
